@@ -36,9 +36,35 @@ Hotovo v kódu:
 - README.md (sloučený CS+EN s anchor navigací), LICENSE (MIT), .gitignore, .npmignore
 - docs/architecture.md, docs/conventions.md, docs/gotchas.md
 
-Nice-to-have do budoucna:
-- Unit testy (config parsing, i18n fallback, api error mapping) — před v0.2.0 rozhodně přidat
-- Preventivní rate limiting (token bucket) v `ApiClient` — zatím řešeno jen reaktivně přes 429 retry
+## Roadmap / Naplánované změny
+
+### v0.1.3 (schváleno, čeká na pár code review)
+
+Drobné kvalitativní vylepšení. Čeká se na druhé code review, pak se nasadí v jednom releasu.
+
+- **Retry pro HTTP 502/503** v `api.ts`. Stejný backoff jako 429 (500/1000/2000 ms, max 3 pokusy). Seznam občas hodí mikrovýpadek přes CDN/load balancer, retry to zachytí.
+- **`console.error` místo `process.stderr.write`** v `config.ts` a `index.ts`. Funkčně stejné (oba jdou do stderr, nenarušují JSON-RPC na stdout), ale `console.error` je idiomatičtější, přidává newline automaticky.
+- Další vstupy z druhého code review — přidají se sem, až dorazí.
+
+### v0.2.0 nebo později
+
+- **Unit testy** přes Vitest (nikoli Jest — Vitest je ESM-native a rychlejší, lépe sedí na náš stack). Pokrýt minimálně: parsing `SEZNAM_WM_SITES` v `config.ts`, fallback cs→key v `i18n.ts`, mapování HTTP status → `ApiErrorKind` v `api.ts`, `optionalDate` a `requireUrl` v `tools/`. Testy psát *před* jakoukoli větší refaktorizací.
+- **Preventivní rate limiting** (token bucket pro 5 req/s, 100 req/min) v `ApiClient`. Zatím řešeno jen reaktivně přes 429 retry — dokud nejde o batch operace, vystačíme s tím. Pokud uživatelé budou dělat dávkové operace, doplnit.
+
+## Rozhodnutí (co jsme záměrně neudělali a proč)
+
+### Migrace na `McpServer` + Zod
+
+**Rozhodnuto 2026-04-22: zůstáváme na low-level `Server` z `@modelcontextprotocol/sdk/server/index.js`.**
+
+SDK ho označuje jako `@deprecated` ve prospěch `McpServer`, ale migrace není triviální kvůli našemu požadavku na lokalizované chybové hlášky:
+
+- `McpServer` + Zod by validaci vstupů zjednodušilo (schémata se píšou jednou, TS typy se odvodí automaticky, `z.string().url()` nahradí `requireUrl`, apod.).
+- **ALE**: Zod vyhazuje default chybové hlášky v angličtině (`"Invalid url"`, `"Required"`) a vyhazuje je *před* zavoláním handleru, takže náš i18n helper `t(lang, …)` se k nim nedostane.
+- Pro zachování lokalizace by bylo potřeba buď `.refine()` s custom `message` na každém poli (vrátí zpět většinu boilerplate, který Zod měl odstranit), nebo globální `errorMap` čtoucí aktuální `SEZNAM_WM_LANG` (komplikace kvůli scopingu — `lang` je per-server, ne globální).
+- Chybové hlášky s návodem na řešení jsou reálná feature projektu (v0.1.2 jsme je dolaďovali), nechceme je obětovat pro architektonický úklid.
+
+**Co to znamená pro budoucí sessions**: když narazíš na deprecation marker u `Server` a budeš v pokušení migrovat, přečti si tohle a zvaž, jestli jsi ochoten vyřešit i18n preservation. Pokud ano, plán je: (1) nejdřív unit testy (v0.2.0), (2) pak migrace s custom `errorMap` čtoucí lang z closure per-handler, (3) důkladný smoke test všech chybových cest v obou jazycích.
 
 ## Changelog
 

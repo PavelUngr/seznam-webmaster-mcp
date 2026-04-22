@@ -1,0 +1,13 @@
+src/
+docs/
+node_modules/
+.github/
+.gitignore
+.vscode/
+.idea/
+tsconfig.json
+CLAUDE.md
+*.tsbuildinfo
+*.log
+.env
+.env.*

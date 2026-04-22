@@ -38,18 +38,35 @@ Hotovo v kódu:
 
 ## Roadmap / Naplánované změny
 
-### v0.1.3 (schváleno, čeká na pár code review)
+### v0.1.3 — schváleno, čeká na explicitní povolení spustit
 
-Drobné kvalitativní vylepšení. Čeká se na druhé code review, pak se nasadí v jednom releasu.
+Bundle drobných quality/safety oprav ze dvou code review. Všechno malé až středně velké, všechno uvnitř existujících funkcí, nízké riziko regresi.
 
-- **Retry pro HTTP 502/503** v `api.ts`. Stejný backoff jako 429 (500/1000/2000 ms, max 3 pokusy). Seznam občas hodí mikrovýpadek přes CDN/load balancer, retry to zachytí.
-- **`console.error` místo `process.stderr.write`** v `config.ts` a `index.ts`. Funkčně stejné (oba jdou do stderr, nenarušují JSON-RPC na stdout), ale `console.error` je idiomatičtější, přidává newline automaticky.
-- Další vstupy z druhého code review — přidají se sem, až dorazí.
+**Bezpečnost (MUST)**
+1. **Redact `key=` z `detail`** při čtení upstream error bodu v `src/api.ts` (`readErrorDetail`). Regex `key=[^&]+` → `key=REDACTED`. Dnes může skončit API klíč v chybové hlášce zpátky u uživatele (Cloudflare challenge pages a podobné proxy reflektují request URL do těla), což porušuje naši vlastní garanci „API klíče nikdy neopouštějí server" v README a `docs/conventions.md`.
+
+**Robustnost (SHOULD)**
+2. **Context-aware 403.** `apiErrorToResult` v `src/tools/common.ts` přijme optional kontext (`reindex` vs. `read`). V `src/i18n.ts` rozdělit `api_403_forbidden` na `api_403_reindex` (současná zpráva o write klíči, použije jen `reindex.ts`) a `api_403_generic` (neutrální, mluví obecně o oprávněních, pro všechny ostatní nástroje). Dnes read endpoint s 403 dostane zavádějící radu o write klíči.
+3. **Lepší `normalizeDomain`** v `src/config.ts`. Strip scheme (`https?://`), path (vše za `/`), port (`:nnn`); zachovat `www.` (ať si uživatel rozhodne v configu). LLM klienti často posílají URL-like vstupy jako `https://example.cz/` — dnes nematchnou configurované `example.cz` a uživatel dostane `domain_not_configured`.
+
+**Kvalita (z prvního review)**
+4. **Retry pro 502/503** v `src/api.ts`. Stejný backoff jako 429 (500/1000/2000 ms, max 3 pokusy). Mikrovýpadky Seznamu / CDN jsou často kratší než 3 s.
+5. **`console.error`** místo `process.stderr.write` v `src/config.ts` a `src/index.ts`. Funkčně stejné (oba jdou do stderr, nenarušují JSON-RPC na stdout), ale idiomatičtější a přidává newline automaticky.
+
+**Údržba (minor cleanup)**
+6. **MCP SDK range** v `package.json` z `^1.0.4` na `^1.29.0` — pin na minor verzi, kterou reálně testujeme a kterou popisuje dokumentace.
+7. **Lokalizovat `(no data)`** v `src/tools/status.ts:59` — nový i18n klíč `no_data_simple`, cs + en varianta.
+8. **Odstranit nepoužité i18n klíče** `category_content/redirect/index/error/downloaded/redirected/indexed`. Byly připravené pro formátování, nikdy se nenasadily (dumpujeme raw JSON z API).
+
+**Workflow při startu v0.1.3**
+- Každá oprava jako samostatná logická změna v rámci commitu (nebo rozděleno na 2–3 commity pokud to dává smysl).
+- Rozšířit smoke test o cases pro: domain normalization (URL-like input), 403 context-aware message, key redaction v error detail.
+- Release workflow podle závazného standardu (bump patch → push --follow-tags → publish → gh release → aktualizovat CLAUDE.md).
 
 ### v0.2.0 nebo později
 
-- **Unit testy** přes Vitest (nikoli Jest — Vitest je ESM-native a rychlejší, lépe sedí na náš stack). Pokrýt minimálně: parsing `SEZNAM_WM_SITES` v `config.ts`, fallback cs→key v `i18n.ts`, mapování HTTP status → `ApiErrorKind` v `api.ts`, `optionalDate` a `requireUrl` v `tools/`. Testy psát *před* jakoukoli větší refaktorizací.
-- **Preventivní rate limiting** (token bucket pro 5 req/s, 100 req/min) v `ApiClient`. Zatím řešeno jen reaktivně přes 429 retry — dokud nejde o batch operace, vystačíme s tím. Pokud uživatelé budou dělat dávkové operace, doplnit.
+- **Unit testy** přes Vitest (nikoli Jest — Vitest je ESM-native a rychlejší, lépe sedí na náš stack). Přidat i `test` a `lint` script do `package.json`. Pokrýt minimálně: parsing `SEZNAM_WM_SITES` v `config.ts`, fallback cs→key v `i18n.ts`, mapování HTTP status → `ApiErrorKind` v `api.ts`, `optionalDate` / `requireUrl` / `normalizeDomain` v `tools/` a `config/`. Testy psát *před* jakoukoli větší refaktorizací.
+- **Preventivní rate limiting** (token bucket pro 5 req/s, 100 req/min) v `ApiClient`. Zatím řešeno jen reaktivně přes 429 retry — pro dávkové operace (např. LLM, který ze smyčky volá `reindex_url` pro stovky URL) by preventivní throttling byl lepší.
 
 ## Rozhodnutí (co jsme záměrně neudělali a proč)
 

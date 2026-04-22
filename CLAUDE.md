@@ -17,6 +17,27 @@ místa. Zároveň veřejně dostupný pro SEO komunitu. Každý web má vlastní
 konfigurace jde přes proměnné prostředí v konfiguračním souboru příslušného
 klienta.
 
+## Stav
+
+**Verze 0.1.0 — implementováno.** Všech 7 MCP nástrojů funguje, server kompiluje
+bez chyb, smoke-test prošel (cs i en lokalizace, error handling, tool listing).
+
+Hotovo:
+- 7 MCP nástrojů (status, documents, history, reindex, database-info, sites)
+- HTTP klient s retry na 429 (500/1000/2000 ms) a timeout 30 s přes `AbortSignal`
+- Parsing `SEZNAM_WM_SITES` + `SEZNAM_WM_LANG` s validací a varováním u duplicit
+- Lokalizace cs (výchozí) + en
+- README.md, README.cs.md, LICENSE (MIT), .gitignore, .npmignore
+- docs/architecture.md, docs/conventions.md, docs/gotchas.md
+
+Zbývá před první publikací:
+
+1. **Ověřit scope `@pavelungr` na npm.** Před prvním `npm publish` spustit `npm access list packages @pavelungr` — pokud scope ještě neexistuje, založit ho na [npmjs.com](https://www.npmjs.com/) pod stejným účtem. Bez existujícího scope se publish nepovede.
+2. **`git init` + první commit.** Po inicializaci repozitáře zkontrolovat `git status` — v indexu nesmí být `dist/` ani `node_modules/` (dík `.gitignore` by tam být neměly, ale pro jistotu ověřit). Push na `github.com/pavelungr/seznam-webmaster-mcp`.
+3. **První publikace na npm: `npm publish --access public`.** Příznak `--access public` je u scoped balíčků povinný — bez něj npm defaultně zkouší privátní publish a u neplaceného účtu selže.
+4. **Ověřit `npx` po publikaci.** Z čerstvého adresáře (nebo po `npx clear-npx-cache`) spustit `npx @pavelungr/seznam-webmaster-mcp` a zkontrolovat, že server nabootuje bez errorů.
+5. **Unit testy** (config parsing, i18n fallback, api error mapping) — nepovinné pro v0.1.0, ale stojí za to před v0.2.0.
+
 ## Architektura
 
 @docs/architecture.md
@@ -69,60 +90,17 @@ vráceného z API (ten je vždy tak, jak ho vrátí Seznam).
 
 ## Podporovaní klienti a jejich konfigurace
 
-### Claude Desktop / Claude Code
+Plné uživatelské konfigurační příklady jsou v `README.md` / `README.cs.md`.
+Zkrácený přehled pro rychlou orientaci:
 
-```json
-{
-  "mcpServers": {
-    "seznam-webmaster": {
-      "command": "npx",
-      "args": ["@pavelungr/seznam-webmaster-mcp"],
-      "env": {
-        "SEZNAM_WM_SITES": "[{\"domain\":\"example.cz\",\"apiKey\":\"abc123\"}]"
-      }
-    }
-  }
-}
-```
+- **Claude Desktop / Claude Code** — `claude_desktop_config.json` nebo projektové `.mcp.json`, blok `mcpServers.seznam-webmaster` s `command: npx`, `args: ["@pavelungr/seznam-webmaster-mcp"]`.
+- **OpenAI Codex CLI** — `~/.codex/config.toml`, sekce `[mcp_servers.seznam-webmaster]`.
+- **Gemini CLI** — `~/.gemini/settings.json`. Vyžaduje při prvním spuštění příznak `--consent`.
+- **Cursor** — `.cursor/mcp.json` (per-project) nebo globální nastavení.
 
-### OpenAI Codex CLI
-
-Konfigurace v `~/.codex/config.toml`:
-
-```toml
-[mcp_servers.seznam-webmaster]
-command = "npx"
-args    = ["@pavelungr/seznam-webmaster-mcp"]
-
-[mcp_servers.seznam-webmaster.env]
-SEZNAM_WM_SITES = '[{"domain":"example.cz","apiKey":"abc123"}]'
-```
-
-### Gemini CLI
-
-Konfigurace v `~/.gemini/settings.json`:
-
-```json
-{
-  "mcpServers": {
-    "seznam-webmaster": {
-      "command": "npx",
-      "args": ["@pavelungr/seznam-webmaster-mcp"],
-      "env": {
-        "SEZNAM_WM_SITES": "[{\"domain\":\"example.cz\",\"apiKey\":\"abc123\"}]"
-      }
-    }
-  }
-}
-```
-
-**Pozor:** Gemini CLI vyžaduje při prvním spuštění příznak `--consent`. Toto je
-zmíněno v README — nezapomenout doplnit.
-
-### Cursor
-
-Konfigurace v `.cursor/mcp.json` (lokálně pro projekt) nebo v globálním
-nastavení Cursoru.
+Env proměnné se předávají přes `env` blok v klientské konfiguraci:
+- `SEZNAM_WM_SITES` (povinné pro API-volající nástroje)
+- `SEZNAM_WM_LANG` (volitelné, výchozí `cs`)
 
 ---
 
@@ -252,15 +230,21 @@ Při přidávání nebo úpravě nástrojů dodržuj toto schéma:
 tool_name(domain: string, ...): popis co dělá a co vrací
 ```
 
-Plánované nástroje (upřesnit v docs/architecture.md):
+Implementované nástroje (v0.1.0):
 
-- `get_web_status` — informace o webu (`GET /web`)
-- `get_indexed_pages` — počty a vzorky webových stránek (`GET /web/documents`)
-- `get_index_history` — historie počtu stránek (`GET /web/documents-history`)
-- `get_document_info` — detail konkrétní URL (`GET /web/document`)
-- `reindex_url` — reindexace stránky (`POST /web/document/reindex`, limit 500/den)
-- `get_database_info` — informace o databázi (`GET /database-info`)
-- `list_sites` — výpis nakonfigurovaných webů (bez API klíčů)
+| Nástroj | Endpoint | Argumenty | Soubor |
+|---|---|---|---|
+| `get_web_status` | GET /web | `domain` | `src/tools/status.ts` |
+| `get_indexed_pages` | GET /web/documents | `domain` | `src/tools/documents.ts` |
+| `get_index_history` | GET /web/documents-history | `domain`, `date_from?`, `date_to?` | `src/tools/history.ts` |
+| `get_document_info` | GET /web/document | `domain`, `url` | `src/tools/documents.ts` |
+| `reindex_url` | POST /web/document/reindex | `domain`, `url` | `src/tools/reindex.ts` |
+| `get_database_info` | GET /database-info | — | `src/tools/status.ts` |
+| `list_sites` | (lokální) | — | `src/tools/sites.ts` |
+
+Všechny API-volající nástroje přijímají `domain` jako první povinný parametr
+a dohledávají si API klíč z `AppConfig`. `get_database_info` a `list_sites`
+fungují i bez nakonfigurované domény.
 
 ---
 
@@ -269,19 +253,26 @@ Plánované nástroje (upřesnit v docs/architecture.md):
 ```
 seznam-webmaster-mcp/
 ├── CLAUDE.md
-├── README.md           ← anglická verze
+├── README.md           ← anglická verze (canonical)
 ├── README.cs.md        ← česká verze
+├── LICENSE             ← MIT
+├── .gitignore
+├── .npmignore          ← brání src/, docs/, CLAUDE.md v npm balíčku
 ├── package.json
 ├── tsconfig.json
 ├── src/
-│   ├── index.ts        ← vstupní bod, registrace MCP serveru
-│   ├── config.ts       ← parsing SEZNAM_WM_SITES, validace
-│   ├── api.ts          ← HTTP klient pro Seznam Webmaster API
+│   ├── index.ts        ← vstupní bod, registrace MCP serveru, stdio transport
+│   ├── config.ts       ← parsing SEZNAM_WM_SITES + SEZNAM_WM_LANG, validace
+│   ├── api.ts          ← HTTP klient pro Seznam Webmaster API (timeout, 204, 429 retry)
+│   ├── i18n.ts         ← lokalizace cs/en pro zprávy serveru
 │   └── tools/
-│       ├── status.ts
-│       ├── documents.ts
-│       ├── history.ts
-│       └── reindex.ts
+│       ├── common.ts   ← sdílené helpery (ToolDefinition, resolveSite, apiErrorToResult)
+│       ├── status.ts   ← get_web_status, get_database_info
+│       ├── documents.ts ← get_indexed_pages, get_document_info
+│       ├── history.ts  ← get_index_history
+│       ├── reindex.ts  ← reindex_url
+│       └── sites.ts    ← list_sites
+├── dist/               ← výstup `tsc`, publikuje se (via `files` v package.json)
 └── docs/
     ├── architecture.md
     ├── conventions.md
@@ -303,7 +294,18 @@ Veřejná dokumentace (pro uživatele) patří do `README.md` a `README.cs.md`.
 
 ## Co nepatří do tohoto souboru
 
-- Obsah README (ten jde do README.md / README.cs.md)
+- Obsah README (instalace, ukázky použití, uživatelské konfigurační příklady) — patří do README.md / README.cs.md
 - Changelog
 - Ukázkové výstupy volání API
-- Instalační návod (patří do README)
+- Interní dokumentační detaily (architektura, konvence, záludnosti) — patří do docs/
+
+## Build a vývojové příkazy
+
+```bash
+npm install         # instalace závislostí (pouze @modelcontextprotocol/sdk + dev deps)
+npm run build       # tsc → dist/
+npm start           # node dist/index.js (server mluví přes stdio)
+```
+
+Runtime Node >= 18. Žádné runtime závislosti mimo `@modelcontextprotocol/sdk`
+(používáme nativní `fetch`).

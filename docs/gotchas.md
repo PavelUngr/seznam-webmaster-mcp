@@ -30,3 +30,25 @@ Seznam věcí, které jsou nečekané, špatně dokumentované nebo snadno přeh
 ## Abort / timeout detekce
 
 Node 18+ `fetch` vyhazuje při timeoutu (`AbortSignal.timeout`) `DOMException` s `name === "TimeoutError"` nebo `"AbortError"`. V některých verzích Node navíc `err.code === "ABORT_ERR"`. V `api.ts:request` kontrolujeme všechny tři — při přidání nového runtime znovu ověřit, jestli tahle detekce sedí.
+
+## HTTP 400 neznamená vždy „missing key"
+
+Dokumentace Seznam API říká, že `400` znamená chybějící parametr `key`. Naše implementace ale *vždy* posílá `?key=` (validace `SiteConfig.apiKey` při načtení configu garantuje non-empty), takže „skutečné missing-key 400" od nás nikdy nemůže přijít. Pokud 400 přesto přijde, je to něco jiného — proxy, malformovaný dotaz, změna API. Proto mapping `400 → missing_key` byl v `api.ts` odstraněn; 400 padá do `generic` a uživatel uvidí reálný detail od Seznamu.
+
+## Uvozovky v českých stringových literálech v TS
+
+Nepoužívat české uvozovky `„…"` uvnitř JS stringu ohraničeného `"…"` — pravá uvozovka `"` (U+201D) je vizuálně jiná než ASCII `"`, ale TypeScript/Node parser i tak občas kousne na kombinaci (typicky přes JSON minifier nebo po kopírování přes editor, který normalizuje). Bezpečné varianty: použít jednoduché ASCII uvozovky `"..."` s escapem `\"` uvnitř, nebo přepsat formulaci bez uvozovek. Toto zachytil build `src/i18n.ts(29,86): error TS1127: Invalid character` při vývoji v0.1.2.
+
+## Validace vstupů vs. Seznam API
+
+Co validujeme **lokálně** (vrací jasnou chybu bez volání API):
+- Datumy v `get_index_history`: formát YYYY-MM-DD + reálné datum v kalendáři + `date_from ≤ date_to`
+- URL v `get_document_info` a `reindex_url`: musí být validní absolutní URL se scheme `http(s)`
+- Doména: musí být v `SEZNAM_WM_SITES`
+
+Co nevalidujeme (necháme odmítnout Seznam API):
+- Zda doména v `SEZNAM_WM_SITES` opravdu patří ověřenému webu v Seznam Webmasteru (to ví jen Seznam)
+- Zda URL v `get_document_info` / `reindex_url` Seznam crawloval (404 to vyřídí)
+- Zda klíč má write oprávnění pro `reindex_url` (403 to vyřídí)
+
+Princip: validovat jen to, co lze ověřit bez síťové latence. Zbytek necháme na API a převedeme chybu na srozumitelnou hlášku.

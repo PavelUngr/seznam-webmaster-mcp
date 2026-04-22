@@ -19,10 +19,10 @@ klienta.
 
 ## Stav
 
-**Verze 0.1.1 — veřejně publikovaná.** Balíček běží na npm, kód a releasy jsou na GitHubu.
+**Verze 0.1.2 — veřejně publikovaná.** Balíček běží na npm, kód a releasy jsou na GitHubu.
 
-- **npm:** [`@pavelungr/seznam-webmaster-mcp@0.1.1`](https://www.npmjs.com/package/@pavelungr/seznam-webmaster-mcp), tag `latest`
-- **GitHub:** [`PavelUngr/seznam-webmaster-mcp`](https://github.com/PavelUngr/seznam-webmaster-mcp), default branch `main`, tagy `v0.1.0` a `v0.1.1` s GitHub Releases
+- **npm:** [`@pavelungr/seznam-webmaster-mcp@0.1.2`](https://www.npmjs.com/package/@pavelungr/seznam-webmaster-mcp), tag `latest`
+- **GitHub:** [`PavelUngr/seznam-webmaster-mcp`](https://github.com/PavelUngr/seznam-webmaster-mcp), default branch `main`, tagy `v0.1.0`, `v0.1.1`, `v0.1.2` s GitHub Releases
 - **Instalace:** `npx @pavelungr/seznam-webmaster-mcp` (standard MCP spouštění přes stdio)
 - **Kompatibilní MCP klienti:** Claude Desktop, Claude Code, OpenAI Codex CLI, Gemini CLI, Cursor
 
@@ -30,7 +30,9 @@ Hotovo v kódu:
 - 7 MCP nástrojů (status, documents, history, reindex, database-info, sites)
 - HTTP klient s retry na 429 (500/1000/2000 ms) a timeout 30 s přes `AbortSignal`
 - Parsing `SEZNAM_WM_SITES` + `SEZNAM_WM_LANG` s validací a varováním u duplicit
-- Lokalizace cs (výchozí) + en
+- Lokalizace cs (výchozí) + en, všechny chybové hlášky obsahují návod na řešení
+- Striktní validace vstupů: YYYY-MM-DD jako reálné datum v kalendáři, `date_from ≤ date_to`, URL musí mít http(s) scheme
+- Verze serveru se čte z `package.json` za běhu (žádný hardcoded string)
 - README.md (sloučený CS+EN s anchor navigací), LICENSE (MIT), .gitignore, .npmignore
 - docs/architecture.md, docs/conventions.md, docs/gotchas.md
 
@@ -39,6 +41,8 @@ Nice-to-have do budoucna:
 - Preventivní rate limiting (token bucket) v `ApiClient` — zatím řešeno jen reaktivně přes 429 retry
 
 ## Changelog
+
+**v0.1.2** — Bugfix release. (a) Všechny chybové hlášky přepsané tak, aby říkaly *co* se stalo *i co s tím dělat* — včetně odkazů do Seznam Webmasteru, kde řešit ověření klíče, změnu oprávnění atd. (b) Přísnější validace vstupů: datumy se ověřují proti kalendáři (odmítne `2026-02-31`), kontroluje se `date_from ≤ date_to`, URL musí být absolutní a se schématem `http(s)`. (c) Odstraněn zavádějící mapping HTTP 400 → „missing API key" (dead code — sami vždy posíláme `?key=`, takže skutečné „missing key" nikdy nenastane); 400 teď padá do generického handleru, který ukáže skutečný detail ze Seznamu. (d) MCP server advertisuje verzi čtenou z `package.json` za běhu (dřív hardcoded `0.1.0`).
 
 **v0.1.1** — Sjednocení českého a anglického README do jednoho `README.md` (česky první, anglicky po skoku dole). `README.cs.md` ponechán jako krátký pointer. Žádné změny v kódu.
 

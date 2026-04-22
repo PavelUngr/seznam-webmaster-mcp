@@ -19,24 +19,73 @@ klienta.
 
 ## Stav
 
-**Verze 0.1.0 — implementováno.** Všech 7 MCP nástrojů funguje, server kompiluje
-bez chyb, smoke-test prošel (cs i en lokalizace, error handling, tool listing).
+**Verze 0.1.1 — veřejně publikovaná.** Balíček běží na npm, kód a releasy jsou na GitHubu.
 
-Hotovo:
+- **npm:** [`@pavelungr/seznam-webmaster-mcp@0.1.1`](https://www.npmjs.com/package/@pavelungr/seznam-webmaster-mcp), tag `latest`
+- **GitHub:** [`PavelUngr/seznam-webmaster-mcp`](https://github.com/PavelUngr/seznam-webmaster-mcp), default branch `main`, tagy `v0.1.0` a `v0.1.1` s GitHub Releases
+- **Instalace:** `npx @pavelungr/seznam-webmaster-mcp` (standard MCP spouštění přes stdio)
+- **Kompatibilní MCP klienti:** Claude Desktop, Claude Code, OpenAI Codex CLI, Gemini CLI, Cursor
+
+Hotovo v kódu:
 - 7 MCP nástrojů (status, documents, history, reindex, database-info, sites)
 - HTTP klient s retry na 429 (500/1000/2000 ms) a timeout 30 s přes `AbortSignal`
 - Parsing `SEZNAM_WM_SITES` + `SEZNAM_WM_LANG` s validací a varováním u duplicit
 - Lokalizace cs (výchozí) + en
-- README.md, README.cs.md, LICENSE (MIT), .gitignore, .npmignore
+- README.md (sloučený CS+EN s anchor navigací), LICENSE (MIT), .gitignore, .npmignore
 - docs/architecture.md, docs/conventions.md, docs/gotchas.md
 
-Zbývá před první publikací:
+Nice-to-have do budoucna:
+- Unit testy (config parsing, i18n fallback, api error mapping) — před v0.2.0 rozhodně přidat
+- Preventivní rate limiting (token bucket) v `ApiClient` — zatím řešeno jen reaktivně přes 429 retry
 
-1. **Ověřit scope `@pavelungr` na npm.** Před prvním `npm publish` spustit `npm access list packages @pavelungr` — pokud scope ještě neexistuje, založit ho na [npmjs.com](https://www.npmjs.com/) pod stejným účtem. Bez existujícího scope se publish nepovede.
-2. **`git init` + první commit.** Po inicializaci repozitáře zkontrolovat `git status` — v indexu nesmí být `dist/` ani `node_modules/` (dík `.gitignore` by tam být neměly, ale pro jistotu ověřit). Push na `github.com/pavelungr/seznam-webmaster-mcp`.
-3. **První publikace na npm: `npm publish --access public`.** Příznak `--access public` je u scoped balíčků povinný — bez něj npm defaultně zkouší privátní publish a u neplaceného účtu selže.
-4. **Ověřit `npx` po publikaci.** Z čerstvého adresáře (nebo po `npx clear-npx-cache`) spustit `npx @pavelungr/seznam-webmaster-mcp` a zkontrolovat, že server nabootuje bez errorů.
-5. **Unit testy** (config parsing, i18n fallback, api error mapping) — nepovinné pro v0.1.0, ale stojí za to před v0.2.0.
+## Changelog
+
+**v0.1.1** — Sjednocení českého a anglického README do jednoho `README.md` (česky první, anglicky po skoku dole). `README.cs.md` ponechán jako krátký pointer. Žádné změny v kódu.
+
+**v0.1.0** — První veřejná publikace. Kompletní sada 7 MCP nástrojů, timeout 30 s, 429 retry, cs/en lokalizace, dokumentace v češtině i angličtině.
+
+## Release workflow (závazný standard)
+
+Při **jakékoli změně**, která se má dostat na npm / GitHub (bugfix, nová funkce, úprava dokumentace), postupuj přesně takhle. Pořadí je důležité, každý krok má svůj důvod.
+
+1. **Implementuj změnu a ověř, že je kompletní.** Build (`npm run build`) musí projít bez chyb, smoke-test (pokud existuje) musí projít, všechny zasažené nástroje musí dál fungovat.
+2. **Commitni do gitu** s popisem, který říká *proč*, ne jen *co*. Konvence commit zpráv — viz [commit konvence](#commit-konvence) níže.
+3. **Bumpni verzi balíčku** přes `npm version <patch|minor|major>`. Ten zároveň udělá commit (typu „0.1.2") a git tag (`v0.1.2`).
+    - `patch` — bugfix, drobnost, oprava dokumentace (0.1.1 → 0.1.2)
+    - `minor` — nová funkce nebo nástroj (0.1.x → 0.2.0)
+    - `major` — breaking change (změna formátu env proměnných, odstranění nástroje) (0.x.x → 1.0.0)
+4. **Pushni na GitHub:** `git push --follow-tags origin main`. Flag `--follow-tags` zajistí, že se s commitem pushne i tag.
+5. **Publikuj na npm:** `npm publish --access public`. Flag `--access public` je u scoped balíčku vždy potřeba, jinak npm zkusí privátní publish.
+6. **Vytvoř GitHub Release** k tomu tagu: `gh release create vX.Y.Z --latest --title "vX.Y.Z — stručný popis" --notes "..."`. Release notes stručně: co se změnilo, jestli je to breaking, jak udělat upgrade. Bez GitHub Release tag existuje, ale není vidět v sekci Releases — lidé o nové verzi nezví.
+7. **Aktualizuj CLAUDE.md:**
+    - sekci **Stav** na novou verzi (npm link, aktuální tag)
+    - sekci **Changelog** přidat novou položku nahoru
+    - pokud změna zavádí nové chování / konvenci / gotchu, aktualizuj i `docs/architecture.md`, `docs/conventions.md` nebo `docs/gotchas.md`
+8. **Commitni CLAUDE.md změny** (může být samostatný commit „docs: bump CLAUDE.md to vX.Y.Z") a push. Bez tohoto kroku další session v Claude Code neuvidí, že jsi něco vydal.
+
+Pravidlo #1: **všechny tři zdroje** (npm, GitHub, CLAUDE.md) musí mít stejný obraz stavu. Když se jeden rozejde, příští release workflow se zasekne na kontrole.
+
+### Commit konvence
+
+- `feat(tool-name): ...` — nová funkce
+- `fix(file): ...` — bugfix
+- `docs: ...` — jen dokumentace
+- `refactor: ...` — vnitřní přesun bez změny chování
+- `chore: ...` — build / CI / závislosti
+
+### Předpoklady pro release (jednorázově nastaveno)
+
+Tyto věci jsou nastaveny a fungují. Kontroluj jen při změně HW / nového počítače.
+
+- **npm přihlášení** přes granular access token s „Bypass 2FA" v `~/.npmrc`. Expiracia tokenu — viz npmjs.com → Settings → Access Tokens.
+- **GitHub auth** přes `gh` CLI (`gh auth status`) — používá se pro `gh release create`.
+- **Scope `@pavelungr` na npm** je aktivní a public.
+
+## Historie publikace (pro pochopení, proč je repo strukturované jak je)
+
+- První publish 0.1.0 narazil na npm 2FA pro publish → vyřešeno granular access tokenem s „Bypass 2FA" (uložený v `~/.npmrc`, nikdy ne v gitu).
+- Po prvním publish se balíček propagoval do `registry.npmjs.org` okamžitě, ale webová stránka na npmjs.com ~10 min prodlevu — neznepokojuj se, pokud hned po publish stránka hlásí 403 nebo 404.
+- `main` větev byla původně prázdná (jen initial commit z GitHubu), veškerý vývoj probíhal na `dev`. Po prvním release byla `main` fast-forward mergnuta na `dev`, default view na GitHubu teď ukazuje celý kód. Do budoucna pracovat rovnou na `main` nebo merge `dev` → `main` před release.
 
 ## Architektura
 

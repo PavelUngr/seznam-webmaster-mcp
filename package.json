@@ -1,6 +1,6 @@
 {
   "name": "@pavelungr/seznam-webmaster-mcp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "MCP server for Seznam Webmaster API — manage indexation status, documents, history, and reindex requests across multiple sites from a single place.",
   "license": "MIT",
   "author": "Pavel Ungr <jsem@pavelungr.cz>",

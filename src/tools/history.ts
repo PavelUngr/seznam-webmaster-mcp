@@ -11,7 +11,7 @@ import {
   unwrap,
 } from "./common.js";
 
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
 
 function optionalDate(
   args: Record<string, unknown>,
@@ -21,7 +21,18 @@ function optionalDate(
   if (v === undefined || v === null || v === "") {
     return { ok: true, value: undefined };
   }
-  if (typeof v !== "string" || !DATE_RE.test(v)) {
+  if (typeof v !== "string") return { ok: false, error: name };
+  const match = DATE_RE.exec(v);
+  if (!match) return { ok: false, error: name };
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) {
     return { ok: false, error: name };
   }
   return { ok: true, value: v };
@@ -66,6 +77,12 @@ export function buildHistoryTools(deps: ToolDeps): ToolDefinition[] {
       if (!dTo.ok) {
         return textResult(
           t(lang, "invalid_date_format", { name: dTo.error }),
+          true,
+        );
+      }
+      if (dFrom.value && dTo.value && dFrom.value > dTo.value) {
+        return textResult(
+          t(lang, "invalid_date_range", { from: dFrom.value, to: dTo.value }),
           true,
         );
       }

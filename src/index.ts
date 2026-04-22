@@ -1,4 +1,8 @@
 #!/usr/bin/env node
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
@@ -16,6 +20,19 @@ import { buildReindexTools } from "./tools/reindex.js";
 import { buildSitesTools } from "./tools/sites.js";
 import { buildStatusTools } from "./tools/status.js";
 import type { ToolDefinition, ToolDeps } from "./tools/common.js";
+
+function readPackageMeta(): { name: string; version: string } {
+  // package.json is at the root; dist/index.js is in dist/, so ../package.json
+  const here = dirname(fileURLToPath(import.meta.url));
+  const pkgPath = join(here, "..", "package.json");
+  const parsed = JSON.parse(readFileSync(pkgPath, "utf8")) as {
+    name?: unknown;
+    version?: unknown;
+  };
+  const name = typeof parsed.name === "string" ? parsed.name : "seznam-webmaster-mcp";
+  const version = typeof parsed.version === "string" ? parsed.version : "0.0.0";
+  return { name, version };
+}
 
 function collectTools(deps: ToolDeps): ToolDefinition[] {
   return [
@@ -48,10 +65,11 @@ async function main(): Promise<void> {
     tools.map((tool) => [tool.name, tool]),
   );
 
+  const pkg = readPackageMeta();
   const server = new Server(
     {
-      name: "@pavelungr/seznam-webmaster-mcp",
-      version: "0.1.0",
+      name: pkg.name,
+      version: pkg.version,
     },
     {
       capabilities: {

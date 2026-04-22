@@ -45,6 +45,27 @@ export function requireString(
   return { ok: true, value: v.trim() };
 }
 
+export function requireUrl(
+  args: Record<string, unknown>,
+  name: string,
+): { ok: true; value: string } | { ok: false; kind: "missing" | "invalid"; error: string } {
+  const v = args[name];
+  if (typeof v !== "string" || v.trim() === "") {
+    return { ok: false, kind: "missing", error: name };
+  }
+  const trimmed = v.trim();
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    return { ok: false, kind: "invalid", error: name };
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    return { ok: false, kind: "invalid", error: name };
+  }
+  return { ok: true, value: trimmed };
+}
+
 export function resolveSite(
   deps: ToolDeps,
   domain: string,
@@ -69,8 +90,6 @@ export function apiErrorToResult(
 ): ToolResult {
   const lang = deps.config.lang;
   switch (error.kind) {
-    case "missing_key":
-      return textResult(t(lang, "api_400_missing_key"), true);
     case "bad_key":
       return textResult(
         t(lang, "api_401_bad_key", { domain: domain ?? "" }),

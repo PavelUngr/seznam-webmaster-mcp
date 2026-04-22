@@ -6,6 +6,7 @@ import {
   domainSchema,
   noDataResult,
   requireString,
+  requireUrl,
   resolveSite,
   textResult,
   unwrap,
@@ -64,9 +65,10 @@ export function buildDocumentsTools(deps: ToolDeps): ToolDefinition[] {
       if (!domainArg.ok) {
         return textResult(t(lang, "missing_param", { name: domainArg.error }), true);
       }
-      const urlArg = requireString(args, "url");
+      const urlArg = requireUrl(args, "url");
       if (!urlArg.ok) {
-        return textResult(t(lang, "missing_param", { name: urlArg.error }), true);
+        const key = urlArg.kind === "missing" ? "missing_param" : "invalid_url";
+        return textResult(t(lang, key, { name: urlArg.error }), true);
       }
       const resolved = resolveSite(deps, domainArg.value);
       if (!resolved.ok) return resolved.result;

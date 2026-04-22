@@ -60,7 +60,6 @@ export interface ProblemResult {
 }
 
 export type ApiErrorKind =
-  | "missing_key"
   | "bad_key"
   | "forbidden"
   | "not_found"
@@ -271,8 +270,6 @@ export class ApiClient {
 
 function mapStatusToKind(status: number): ApiErrorKind {
   switch (status) {
-    case 400:
-      return "missing_key";
     case 401:
       return "bad_key";
     case 403:
@@ -285,6 +282,11 @@ function mapStatusToKind(status: number): ApiErrorKind {
     case 503:
       return "service_unavailable";
     default:
+      // 400 and any other status code falls through to generic, so the
+      // user sees the actual detail from Seznam instead of a hardcoded
+      // "missing API key" message that would be wrong — the client
+      // always sends ?key= (validated at config load), so a real
+      // "missing key" 400 can't happen from our side.
       return "generic";
   }
 }

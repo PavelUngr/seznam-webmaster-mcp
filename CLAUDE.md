@@ -47,21 +47,28 @@ Bundle drobných quality/safety oprav ze dvou code review. Všechno malé až st
 
 **Robustnost (SHOULD)**
 2. **Context-aware 403.** `apiErrorToResult` v `src/tools/common.ts` přijme optional kontext (`reindex` vs. `read`). V `src/i18n.ts` rozdělit `api_403_forbidden` na `api_403_reindex` (současná zpráva o write klíči, použije jen `reindex.ts`) a `api_403_generic` (neutrální, mluví obecně o oprávněních, pro všechny ostatní nástroje). Dnes read endpoint s 403 dostane zavádějící radu o write klíči.
-3. **Lepší `normalizeDomain`** v `src/config.ts`. Strip scheme (`https?://`), path (vše za `/`), port (`:nnn`); zachovat `www.` (ať si uživatel rozhodne v configu). LLM klienti často posílají URL-like vstupy jako `https://example.cz/` — dnes nematchnou configurované `example.cz` a uživatel dostane `domain_not_configured`.
+3. **Lepší `normalizeDomain`** v `src/config.ts`. Strip scheme (`https?://`), path (vše za `/`), port (`:nnn`); zachovat `www.` (ať si uživatel rozhodne v configu). LLM klienti často posílají URL-like vstupy jako `https://example.cz/` — dnes nematchnou configurované `example.cz` a uživatel dostane `domain_not_configured`. Ověřeno třetím auditem na živém MCP (`get_web_status(domain="https://mareklecian.cz/")` → chyba).
+4. **Rozšířit TypeScript modely podle reálného API payloadu** v `src/api.ts`. Třetí audit ověřil, že živý Seznam Webmaster API vrací navíc: `documents.doc_count`, `history[].counts.content`, `history[].counts.doc_count`, `webserver` na top-level `Web`, a `responseHeaders[].content` (vedle nebo místo `value`). Swagger spec, z něhož byly typy odvozeny, je zjevně neúplný nebo starší. Doplnit chybějící pole jako optional + přidat gotchu „API payload je širší než Swagger spec" do `docs/gotchas.md`.
 
 **Kvalita (z prvního review)**
-4. **Retry pro 502/503** v `src/api.ts`. Stejný backoff jako 429 (500/1000/2000 ms, max 3 pokusy). Mikrovýpadky Seznamu / CDN jsou často kratší než 3 s.
-5. **`console.error`** místo `process.stderr.write` v `src/config.ts` a `src/index.ts`. Funkčně stejné (oba jdou do stderr, nenarušují JSON-RPC na stdout), ale idiomatičtější a přidává newline automaticky.
+5. **Retry pro 502/503** v `src/api.ts`. Stejný backoff jako 429 (500/1000/2000 ms, max 3 pokusy). Mikrovýpadky Seznamu / CDN jsou často kratší než 3 s.
+6. **`console.error`** místo `process.stderr.write` v `src/config.ts` a `src/index.ts`. Funkčně stejné (oba jdou do stderr, nenarušují JSON-RPC na stdout), ale idiomatičtější a přidává newline automaticky.
+7. **Neškrtat surový `err.message` klientovi** v top-level catch v `src/index.ts` (handler tool callů). Interní detail zalogovat na stderr přes `console.error`, klientovi vrátit lokalizovaný `internal_error` („Vnitřní chyba serveru, zkus to znovu; pokud problém přetrvává, nahlas issue na GitHub"). Dnes z message může prolézt cesta k souboru nebo jméno knihovny.
 
 **Údržba (minor cleanup)**
-6. **MCP SDK range** v `package.json` z `^1.0.4` na `^1.29.0` — pin na minor verzi, kterou reálně testujeme a kterou popisuje dokumentace.
-7. **Lokalizovat `(no data)`** v `src/tools/status.ts:59` — nový i18n klíč `no_data_simple`, cs + en varianta.
-8. **Odstranit nepoužité i18n klíče** `category_content/redirect/index/error/downloaded/redirected/indexed`. Byly připravené pro formátování, nikdy se nenasadily (dumpujeme raw JSON z API).
+8. **MCP SDK range** v `package.json` z `^1.0.4` na `^1.29.0` — pin na minor verzi, kterou reálně testujeme a kterou popisuje dokumentace.
+9. **Lokalizovat `(no data)`** v `src/tools/status.ts:59` — nový i18n klíč `no_data_simple`, cs + en varianta.
+10. **Odstranit nepoužité i18n klíče** `category_content/redirect/index/error/downloaded/redirected/indexed`. Byly připravené pro formátování, nikdy se nenasadily (dumpujeme raw JSON z API).
 
 **Workflow při startu v0.1.3**
 - Každá oprava jako samostatná logická změna v rámci commitu (nebo rozděleno na 2–3 commity pokud to dává smysl).
-- Rozšířit smoke test o cases pro: domain normalization (URL-like input), 403 context-aware message, key redaction v error detail.
+- Rozšířit smoke test o cases pro: domain normalization (URL-like input), 403 context-aware message, key redaction v error detail, internal error leak protection.
 - Release workflow podle závazného standardu (bump patch → push --follow-tags → publish → gh release → aktualizovat CLAUDE.md).
+
+**Zdroje plánu**
+- První code review — McpServer/Zod (zamítnuto), retry 5xx, console.error, Vitest testy (odloženo do v0.2.0).
+- Druhé code review — P1 key leak, P2 403 context-aware, P2 normalizeDomain, + minor cleanup (SDK range, i18n cleanup).
+- Třetí audit (23. 4. 2026) — potvrdil P1/P2 z předchozího review, přidal rozšíření TS modelů podle reálného API a lokalizaci internal error.
 
 ### v0.2.0 nebo později
 

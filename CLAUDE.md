@@ -19,56 +19,29 @@ klienta.
 
 ## Stav
 
-**Verze 0.1.2 — veřejně publikovaná.** Balíček běží na npm, kód a releasy jsou na GitHubu.
+**Verze 0.1.3 — veřejně publikovaná.** Balíček běží na npm, kód a releasy jsou na GitHubu.
 
-- **npm:** [`@pavelungr/seznam-webmaster-mcp@0.1.2`](https://www.npmjs.com/package/@pavelungr/seznam-webmaster-mcp), tag `latest`
-- **GitHub:** [`PavelUngr/seznam-webmaster-mcp`](https://github.com/PavelUngr/seznam-webmaster-mcp), default branch `main`, tagy `v0.1.0`, `v0.1.1`, `v0.1.2` s GitHub Releases
+- **npm:** [`@pavelungr/seznam-webmaster-mcp@0.1.3`](https://www.npmjs.com/package/@pavelungr/seznam-webmaster-mcp), tag `latest`
+- **GitHub:** [`PavelUngr/seznam-webmaster-mcp`](https://github.com/PavelUngr/seznam-webmaster-mcp), default branch `main`, tagy `v0.1.0`, `v0.1.1`, `v0.1.2`, `v0.1.3` s GitHub Releases
 - **Instalace:** `npx @pavelungr/seznam-webmaster-mcp` (standard MCP spouštění přes stdio)
 - **Kompatibilní MCP klienti:** Claude Desktop, Claude Code, OpenAI Codex CLI, Gemini CLI, Cursor
 
 Hotovo v kódu:
 - 7 MCP nástrojů (status, documents, history, reindex, database-info, sites)
-- HTTP klient s retry na 429 (500/1000/2000 ms) a timeout 30 s přes `AbortSignal`
+- HTTP klient s retry na 429, 502, 503 (500/1000/2000 ms) a timeout 30 s přes `AbortSignal`
 - Parsing `SEZNAM_WM_SITES` + `SEZNAM_WM_LANG` s validací a varováním u duplicit
+- Robustní `normalizeDomain` — strip scheme, path, port (zachovat `www.`)
 - Lokalizace cs (výchozí) + en, všechny chybové hlášky obsahují návod na řešení
+- Context-aware HTTP 403 (reindex vs. read)
 - Striktní validace vstupů: YYYY-MM-DD jako reálné datum v kalendáři, `date_from ≤ date_to`, URL musí mít http(s) scheme
+- Redakce API klíče (`redactApiKey`) z každého upstream error bodu před odesláním klientovi
+- Lokalizovaná chybová hláška pro interní výjimky (stack jen do stderr, klient dostane generic)
+- TS modely rozšířené o pole přítomná v reálném API (ale ne ve Swagger spec): `doc_count`, `content` alias v history, `webserver`, `ResponseHeader.content`
 - Verze serveru se čte z `package.json` za běhu (žádný hardcoded string)
 - README.md (sloučený CS+EN s anchor navigací), LICENSE (MIT), .gitignore, .npmignore
 - docs/architecture.md, docs/conventions.md, docs/gotchas.md
 
 ## Roadmap / Naplánované změny
-
-### v0.1.3 — schváleno, čeká na explicitní povolení spustit
-
-Bundle drobných quality/safety oprav ze dvou code review. Všechno malé až středně velké, všechno uvnitř existujících funkcí, nízké riziko regresi.
-
-**Bezpečnost (MUST)**
-1. **Redact `key=` z `detail`** při čtení upstream error bodu v `src/api.ts` (`readErrorDetail`). Regex `key=[^&]+` → `key=REDACTED`. Dnes může skončit API klíč v chybové hlášce zpátky u uživatele (Cloudflare challenge pages a podobné proxy reflektují request URL do těla), což porušuje naši vlastní garanci „API klíče nikdy neopouštějí server" v README a `docs/conventions.md`.
-
-**Robustnost (SHOULD)**
-2. **Context-aware 403.** `apiErrorToResult` v `src/tools/common.ts` přijme optional kontext (`reindex` vs. `read`). V `src/i18n.ts` rozdělit `api_403_forbidden` na `api_403_reindex` (současná zpráva o write klíči, použije jen `reindex.ts`) a `api_403_generic` (neutrální, mluví obecně o oprávněních, pro všechny ostatní nástroje). Dnes read endpoint s 403 dostane zavádějící radu o write klíči.
-3. **Lepší `normalizeDomain`** v `src/config.ts`. Strip scheme (`https?://`), path (vše za `/`), port (`:nnn`); zachovat `www.` (ať si uživatel rozhodne v configu). LLM klienti často posílají URL-like vstupy jako `https://example.cz/` — dnes nematchnou configurované `example.cz` a uživatel dostane `domain_not_configured`. Ověřeno třetím auditem na živém MCP (`get_web_status(domain="https://mareklecian.cz/")` → chyba).
-4. **Rozšířit TypeScript modely podle reálného API payloadu** v `src/api.ts`. Třetí audit ověřil, že živý Seznam Webmaster API vrací navíc: `documents.doc_count`, `history[].counts.content`, `history[].counts.doc_count`, `webserver` na top-level `Web`, a `responseHeaders[].content` (vedle nebo místo `value`). Swagger spec, z něhož byly typy odvozeny, je zjevně neúplný nebo starší. Doplnit chybějící pole jako optional + přidat gotchu „API payload je širší než Swagger spec" do `docs/gotchas.md`.
-
-**Kvalita (z prvního review)**
-5. **Retry pro 502/503** v `src/api.ts`. Stejný backoff jako 429 (500/1000/2000 ms, max 3 pokusy). Mikrovýpadky Seznamu / CDN jsou často kratší než 3 s.
-6. **`console.error`** místo `process.stderr.write` v `src/config.ts` a `src/index.ts`. Funkčně stejné (oba jdou do stderr, nenarušují JSON-RPC na stdout), ale idiomatičtější a přidává newline automaticky.
-7. **Neškrtat surový `err.message` klientovi** v top-level catch v `src/index.ts` (handler tool callů). Interní detail zalogovat na stderr přes `console.error`, klientovi vrátit lokalizovaný `internal_error` („Vnitřní chyba serveru, zkus to znovu; pokud problém přetrvává, nahlas issue na GitHub"). Dnes z message může prolézt cesta k souboru nebo jméno knihovny.
-
-**Údržba (minor cleanup)**
-8. **MCP SDK range** v `package.json` z `^1.0.4` na `^1.29.0` — pin na minor verzi, kterou reálně testujeme a kterou popisuje dokumentace.
-9. **Lokalizovat `(no data)`** v `src/tools/status.ts:59` — nový i18n klíč `no_data_simple`, cs + en varianta.
-10. **Odstranit nepoužité i18n klíče** `category_content/redirect/index/error/downloaded/redirected/indexed`. Byly připravené pro formátování, nikdy se nenasadily (dumpujeme raw JSON z API).
-
-**Workflow při startu v0.1.3**
-- Každá oprava jako samostatná logická změna v rámci commitu (nebo rozděleno na 2–3 commity pokud to dává smysl).
-- Rozšířit smoke test o cases pro: domain normalization (URL-like input), 403 context-aware message, key redaction v error detail, internal error leak protection.
-- Release workflow podle závazného standardu (bump patch → push --follow-tags → publish → gh release → aktualizovat CLAUDE.md).
-
-**Zdroje plánu**
-- První code review — McpServer/Zod (zamítnuto), retry 5xx, console.error, Vitest testy (odloženo do v0.2.0).
-- Druhé code review — P1 key leak, P2 403 context-aware, P2 normalizeDomain, + minor cleanup (SDK range, i18n cleanup).
-- Třetí audit (23. 4. 2026) — potvrdil P1/P2 z předchozího review, přidal rozšíření TS modelů podle reálného API a lokalizaci internal error.
 
 ### v0.2.0 nebo později
 
@@ -91,6 +64,8 @@ SDK ho označuje jako `@deprecated` ve prospěch `McpServer`, ale migrace není 
 **Co to znamená pro budoucí sessions**: když narazíš na deprecation marker u `Server` a budeš v pokušení migrovat, přečti si tohle a zvaž, jestli jsi ochoten vyřešit i18n preservation. Pokud ano, plán je: (1) nejdřív unit testy (v0.2.0), (2) pak migrace s custom `errorMap` čtoucí lang z closure per-handler, (3) důkladný smoke test všech chybových cest v obou jazycích.
 
 ## Changelog
+
+**v0.1.3** — Security + robustness release. (a) Redakce `key=` z upstream error bodu přes `redactApiKey()` v `src/api.ts` — uzavírá P1 leak, kde Cloudflare challenge pages mohly echonout API klíč zpět klientovi. (b) Context-aware HTTP 403: `reindex_url` dostává radu o write klíči (`api_403_reindex`), ostatní nástroje neutrální zprávu (`api_403_generic`). (c) `normalizeDomain` stripuje `http(s)://`, path, port — LLM vstupy typu `https://example.cz/` teď matchnou configuraci. (d) TS modely rozšířené o optional pole `doc_count`, `content` alias v history, `webserver`, `ResponseHeader.content` podle reálného API (Swagger spec je neúplný). (e) Retry na 502/503 stejným backoffem jako 429. (f) Interní výjimky: plný detail do stderr, klient dostane lokalizovaný `internal_error`. (g) `console.error` místo `process.stderr.write`. (h) Lokalizovaná `(no data)` hláška (`no_data_simple`). (i) Pin MCP SDK na `^1.29.0`.
 
 **v0.1.2** — Bugfix release. (a) Všechny chybové hlášky přepsané tak, aby říkaly *co* se stalo *i co s tím dělat* — včetně odkazů do Seznam Webmasteru, kde řešit ověření klíče, změnu oprávnění atd. (b) Přísnější validace vstupů: datumy se ověřují proti kalendáři (odmítne `2026-02-31`), kontroluje se `date_from ≤ date_to`, URL musí být absolutní a se schématem `http(s)`. (c) Odstraněn zavádějící mapping HTTP 400 → „missing API key" (dead code — sami vždy posíláme `?key=`, takže skutečné „missing key" nikdy nenastane); 400 teď padá do generického handleru, který ukáže skutečný detail ze Seznamu. (d) MCP server advertisuje verzi čtenou z `package.json` za běhu (dřív hardcoded `0.1.0`).
 

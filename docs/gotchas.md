@@ -44,7 +44,7 @@ Nepoužívat české uvozovky `„…"` uvnitř JS stringu ohraničeného `"…"
 Co validujeme **lokálně** (vrací jasnou chybu bez volání API):
 - Datumy v `get_index_history`: formát YYYY-MM-DD + reálné datum v kalendáři + `date_from ≤ date_to`
 - URL v `get_document_info` a `reindex_url`: musí být validní absolutní URL se scheme `http(s)`
-- Doména: musí být v `SEZNAM_WM_SITES`
+- Doména: musí být v `SEZNAM_WM_SITES` — `normalizeDomain` stripuje scheme, path a port, aby LLM-shaped vstupy jako `https://example.cz/` matchly konfigurovanému `example.cz`. Úmyslně nestripujeme `www.` (to by přepsalo uživatelovo rozhodnutí v configu).
 
 Co nevalidujeme (necháme odmítnout Seznam API):
 - Zda doména v `SEZNAM_WM_SITES` opravdu patří ověřenému webu v Seznam Webmasteru (to ví jen Seznam)
@@ -52,3 +52,26 @@ Co nevalidujeme (necháme odmítnout Seznam API):
 - Zda klíč má write oprávnění pro `reindex_url` (403 to vyřídí)
 
 Princip: validovat jen to, co lze ověřit bez síťové latence. Zbytek necháme na API a převedeme chybu na srozumitelnou hlášku.
+
+## Únik API klíče přes upstream error body
+
+Autentizace běží přes query parametr `?key=...`. Když upstream (Cloudflare challenge page, reverzní proxy, load balancer) vrátí HTML/text, který reflektuje request URL zpátky do těla, náš `readErrorDetail` by dostal `?key=abc123...` a ukázal ho klientovi přes `api_error_generic`. Odtud by se klíč dostal do chatu nebo do logu uživatele.
+
+**Řešení od v0.1.3:** `redactApiKey()` v `src/api.ts` skrubuje všechny instance `key=<value>` (query-style) i `"key":"<value>"` (JSON-style) na `REDACTED`, než detail opustí server. Pokud přidáš nový kanál, kterým teče text od API ven (např. debug logging), pusti ho taky přes `redactApiKey`.
+
+Toto je neveřejné pravidlo, ale veřejně slíbené v README a v `docs/conventions.md` („API keys never leave the server"). Kdyby někdy začalo prosakovat, porušujeme vlastní kontrakt.
+
+## API payload Seznam Webmaster je širší než Swagger spec
+
+Swagger spec, z něhož jsou odvozeny TS modely `Web`, `WebDocuments`, `WebHistoryCounts`, `DocumentInfo`, je zjevně starší/neúplný. Třetí audit (23. 4. 2026) ověřil, že živé API vrací navíc:
+
+- `WebDocuments.doc_count` (celkový počet stránek napříč kategoriemi)
+- `WebHistoryCounts.content` (alias pro `downloaded`) a `WebHistoryCounts.doc_count`
+- `Web.webserver` (identifikace webového serveru)
+- `DocumentInfo.responseHeaders[].content` (alias pro `value` — někdy místo něj)
+
+Tyhle pole máme od v0.1.3 jako `optional` v typech (`WebDocuments.doc_count?: number` atd.), plus nový `ResponseHeader` interface pro `value`/`content` dualitu. Dnes to neškodí, protože server všude dumpuje raw JSON přes `JSON.stringify`. Pokud se v budoucnu přidají formattery, selektory nebo testy opřené o typy, mohlo by se to objevit jako regrese. Typy jsou *best effort*, ne kontrakt — API drift je očekávané chování.
+
+## Context-aware 403
+
+Ne každé 403 od Seznam API znamená totéž. Pro `reindex_url` je typický důvod chybějící write oprávnění klíče. Pro read endpointy může jít o omezení přístupu nebo neověřený web. Proto `apiErrorToResult` přijímá od v0.1.3 optional `context: { operation: "reindex" | "read" }` a mapuje na `api_403_reindex` (reindex-specifická rada) nebo `api_403_generic` (neutrální zpráva o oprávněních). Reindex nástroj si kontext explicitně nastavuje; ostatní nástroje dostanou generický default.

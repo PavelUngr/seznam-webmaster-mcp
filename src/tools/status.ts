@@ -58,7 +58,7 @@ export function buildStatusTools(deps: ToolDeps): ToolDefinition[] {
       if (!res.ok) return apiErrorToResult(deps, res.error, undefined);
       if ("noData" in res) {
         return textResult(
-          `${t(lang, "database_info_header")}\n\n(no data)`,
+          `${t(lang, "database_info_header")}\n\n${t(lang, "no_data_simple")}`,
         );
       }
       const header = t(lang, "database_info_header");

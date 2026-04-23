@@ -17,8 +17,30 @@ export class ConfigError extends Error {
   }
 }
 
+/**
+ * Normalize a domain string so that LLM-shaped inputs like
+ * `https://example.cz/`, `EXAMPLE.CZ`, or `example.cz:443` all match the
+ * same configured entry.
+ *
+ * Steps:
+ * 1. trim + lowercase
+ * 2. strip scheme (`http://`, `https://`)
+ * 3. strip everything after the first `/` (path, query, fragment)
+ * 4. strip port (`:nnn`)
+ *
+ * We intentionally do NOT strip `www.` — a site configured as `www.example.cz`
+ * is treated as a different entry from `example.cz`. That matches how
+ * Seznam Webmaster treats verified sites, and lets the user decide the
+ * canonical form explicitly in SEZNAM_WM_SITES.
+ */
 export function normalizeDomain(domain: string): string {
-  return domain.trim().toLowerCase();
+  let s = domain.trim().toLowerCase();
+  s = s.replace(/^https?:\/\//, "");
+  const slashIdx = s.indexOf("/");
+  if (slashIdx !== -1) s = s.slice(0, slashIdx);
+  const colonIdx = s.indexOf(":");
+  if (colonIdx !== -1) s = s.slice(0, colonIdx);
+  return s;
 }
 
 function parseSites(raw: string | undefined): SiteConfig[] {
@@ -70,8 +92,8 @@ function parseSites(raw: string | undefined): SiteConfig[] {
     }
     const domain = normalizeDomain(domainRaw);
     if (seen.has(domain)) {
-      process.stderr.write(
-        `[seznam-webmaster-mcp] warning: duplicate domain "${domain}" in SEZNAM_WM_SITES — keeping the first occurrence.\n`,
+      console.error(
+        `[seznam-webmaster-mcp] warning: duplicate domain "${domain}" in SEZNAM_WM_SITES — keeping the first occurrence.`,
       );
       continue;
     }

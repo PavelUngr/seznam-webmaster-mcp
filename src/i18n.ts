@@ -25,8 +25,10 @@ const cs: Messages = {
     "Data pro doménu \"{domain}\" zatím nejsou k dispozici. U nově přidaných webů mohou data naběhnout až za 24 hodin (HTTP 204).",
   api_401_bad_key:
     "API klíč pro doménu \"{domain}\" je nesprávný (HTTP 401). Co s tím: přihlas se do https://reporter.seznam.cz/wm/, vyber web, jdi do sekce API → Přístupové klíče a ověř, že klíč v SEZNAM_WM_SITES odpovídá. Pokud byl klíč smazán nebo vypršel, vygeneruj nový.",
-  api_403_forbidden:
+  api_403_reindex:
     "Přístup odepřen (HTTP 403). Pro reindexaci potřebuješ klíč s oprávněním zápis — read-only klíč stačí pro čtení, ale ne pro POST /web/document/reindex. Co s tím: v https://reporter.seznam.cz/wm/ → API → Přístupové klíče vygeneruj nový klíč s právem zápisu a nahraď ho v SEZNAM_WM_SITES.",
+  api_403_generic:
+    "Přístup odepřen (HTTP 403). Seznam API odmítl požadavek kvůli oprávněním. Co s tím: ověř v https://reporter.seznam.cz/wm/ → API → Přístupové klíče, že klíč v SEZNAM_WM_SITES patří k této doméně a má dostatečná práva. Pokud jde o chybějící ověření webu, dokončí ho v Seznam Webmasteru.",
   api_404_not_found:
     "Seznam API nenašel požadovaný web nebo stránku (HTTP 404). Co s tím: ověř, že doména je v Seznam Webmasteru ověřená (https://reporter.seznam.cz/wm/) a že URL je přesně ta, kterou Seznam crawloval — pomůže ji zkopírovat z detailu stránky v nástroji, ne psát ručně.",
   api_429_rate_limited:
@@ -48,19 +50,15 @@ const cs: Messages = {
     "Neplatný rozsah dat: date_from ({from}) musí být dříve nebo stejně jako date_to ({to}).",
   invalid_url:
     "Parametr \"{name}\" není platná absolutní URL. Očekává se adresa začínající http:// nebo https://, např. https://example.cz/stranka.",
+  internal_error:
+    "Vnitřní chyba MCP serveru při zpracování nástroje \"{tool}\". Detaily byly zapsány na stderr. Co s tím: zkus operaci znovu. Pokud problém přetrvává, nahlas issue na https://github.com/pavelungr/seznam-webmaster-mcp/issues s popisem, co jsi dělal, a časem chyby.",
+  no_data_simple: "(data nejsou k dispozici)",
   unknown_tool: "Neznámý nástroj: {name}",
   web_status_header: "Stav webu {domain}:",
   documents_header: "Počty stránek pro {domain}:",
   document_detail_header: "Detail stránky {url}:",
   history_header: "Historie indexace pro {domain}:",
   database_info_header: "Informace o databázi Seznam Webmaster:",
-  category_content: "stažené",
-  category_redirect: "přesměrování",
-  category_index: "v indexu",
-  category_error: "chybové",
-  category_downloaded: "stažené",
-  category_redirected: "přesměrování",
-  category_indexed: "v indexu",
 };
 
 const en: Messages = {
@@ -74,8 +72,10 @@ const en: Messages = {
     "Data for domain \"{domain}\" is not available yet. Newly added sites can take up to 24 hours for data to appear (HTTP 204).",
   api_401_bad_key:
     "API key for domain \"{domain}\" is invalid (HTTP 401). How to fix: log in at https://reporter.seznam.cz/wm/, select the site, go to API → Access keys (Přístupové klíče) and verify the key in SEZNAM_WM_SITES matches. If the key was revoked or expired, generate a new one.",
-  api_403_forbidden:
+  api_403_reindex:
     "Access denied (HTTP 403). Reindexing requires a key with write permission — a read-only key works for reads but not for POST /web/document/reindex. How to fix: in https://reporter.seznam.cz/wm/ → API → Access keys, generate a new key with write permission and replace it in SEZNAM_WM_SITES.",
+  api_403_generic:
+    "Access denied (HTTP 403). Seznam API rejected the request due to permissions. How to fix: verify in https://reporter.seznam.cz/wm/ → API → Access keys that the key in SEZNAM_WM_SITES belongs to this domain and has sufficient permissions. If the site verification is incomplete, finish it in Seznam Webmaster.",
   api_404_not_found:
     "Seznam API could not find the requested site or page (HTTP 404). How to fix: verify the domain is verified in Seznam Webmaster (https://reporter.seznam.cz/wm/) and that the URL matches exactly what Seznam crawled — it helps to copy the URL from the page detail in the tool rather than typing it manually.",
   api_429_rate_limited:
@@ -97,19 +97,15 @@ const en: Messages = {
     "Invalid date range: date_from ({from}) must be earlier than or equal to date_to ({to}).",
   invalid_url:
     "Parameter \"{name}\" is not a valid absolute URL. Expected an http:// or https:// address, e.g. https://example.cz/page.",
+  internal_error:
+    "Internal error in the MCP server while handling tool \"{tool}\". Details were written to stderr. How to fix: retry the operation. If the issue persists, report it at https://github.com/pavelungr/seznam-webmaster-mcp/issues with a description of what you were doing and the time the error occurred.",
+  no_data_simple: "(no data available)",
   unknown_tool: "Unknown tool: {name}",
   web_status_header: "Site status for {domain}:",
   documents_header: "Page counts for {domain}:",
   document_detail_header: "Page detail for {url}:",
   history_header: "Indexation history for {domain}:",
   database_info_header: "Seznam Webmaster database info:",
-  category_content: "downloaded",
-  category_redirect: "redirect",
-  category_index: "indexed",
-  category_error: "error",
-  category_downloaded: "downloaded",
-  category_redirected: "redirect",
-  category_indexed: "indexed",
 };
 
 const dictionaries: Record<Lang, Messages> = { cs, en };

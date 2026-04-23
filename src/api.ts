@@ -5,11 +5,18 @@ export interface WebUrl {
   urls: string[];
 }
 
+// Note on type completeness: Seznam Webmaster API's live payload is wider
+// than the published Swagger spec. We keep the spec fields as required and
+// document the extra fields observed in the wild as optional. Future drift
+// is expected — see docs/gotchas.md for the rationale.
+
 export interface WebDocuments {
   content: WebUrl;
   redirect: WebUrl;
   index: WebUrl;
   error: WebUrl;
+  /** Live API: total document count across all categories. Not in Swagger spec. */
+  doc_count?: number;
 }
 
 export interface WebHistoryCounts {
@@ -17,6 +24,10 @@ export interface WebHistoryCounts {
   downloaded: number;
   redirected: number;
   indexed: number;
+  /** Live API: same as downloaded (label alias). Not in Swagger spec. */
+  content?: number;
+  /** Live API: total document count for the day. Not in Swagger spec. */
+  doc_count?: number;
 }
 
 export interface WebHistory {
@@ -27,12 +38,22 @@ export interface WebHistory {
 export interface Web {
   documents: WebDocuments;
   history: WebHistory[];
+  /** Live API: reported web server identifier (e.g. nginx). Not in Swagger spec. */
+  webserver?: string;
 }
 
 export interface DocumentMeta {
   author: string;
   desc: string;
   keywords: string;
+}
+
+export interface ResponseHeader {
+  name: string;
+  /** Swagger spec: header value as `value`. */
+  value?: string;
+  /** Live API sometimes uses `content` instead of (or alongside) `value`. */
+  content?: string;
 }
 
 export interface DocumentInfo {
@@ -45,7 +66,7 @@ export interface DocumentInfo {
   isRedirect: boolean;
   meta: DocumentMeta;
   openGraphData: Array<{ name: string; content: string }>;
-  responseHeaders: Array<{ name: string; value: string }>;
+  responseHeaders: ResponseHeader[];
 }
 
 export interface DatabaseInfo {
@@ -106,7 +127,8 @@ interface RequestOptions {
   timeoutMs?: number;
 }
 
-const RATE_LIMIT_BACKOFFS_MS = [500, 1000, 2000];
+const RETRY_BACKOFFS_MS = [500, 1000, 2000];
+const RETRYABLE_STATUSES = new Set<number>([429, 502, 503]);
 const DEFAULT_TIMEOUT_MS = 30_000;
 
 function sleep(ms: number): Promise<void> {
@@ -132,6 +154,23 @@ function buildUrl(
   return url.toString();
 }
 
+/**
+ * Scrub anything that looks like an API key from a detail string before it
+ * reaches the MCP client. Upstream proxies (Cloudflare challenge pages etc.)
+ * can echo the request URL back in their HTML body, and that URL contains
+ * `?key=...` from our authentication. We must never leak that.
+ *
+ * Redacts:
+ * - `key=<value>` in query-style strings (stops at `&`, whitespace, quote, angle bracket, or end)
+ * - `"key":"<value>"` in JSON-like structures
+ */
+export function redactApiKey(input: string): string {
+  if (!input) return input;
+  return input
+    .replace(/([?&])key=[^&\s"'<>]+/gi, "$1key=REDACTED")
+    .replace(/"key"\s*:\s*"[^"]*"/gi, '"key":"REDACTED"');
+}
+
 async function readErrorDetail(res: Response): Promise<string | undefined> {
   try {
     const text = await res.text();
@@ -141,11 +180,11 @@ async function readErrorDetail(res: Response): Promise<string | undefined> {
       const parts = [parsed.title, parsed.description].filter(
         (s): s is string => typeof s === "string" && s.length > 0,
       );
-      if (parts.length > 0) return parts.join(" — ");
+      if (parts.length > 0) return redactApiKey(parts.join(" — "));
     } catch {
       // not JSON, fall through
     }
-    return text.slice(0, 500);
+    return redactApiKey(text.slice(0, 500));
   } catch {
     return undefined;
   }
@@ -154,7 +193,7 @@ async function readErrorDetail(res: Response): Promise<string | undefined> {
 export class ApiClient {
   async request<T>(path: string, options: RequestOptions = {}): Promise<ApiResult<T>> {
     const method = options.method ?? "GET";
-    const maxRetries = options.retries ?? RATE_LIMIT_BACKOFFS_MS.length;
+    const maxRetries = options.retries ?? RETRY_BACKOFFS_MS.length;
 
     let attempt = 0;
     while (true) {
@@ -211,8 +250,12 @@ export class ApiClient {
         return { ok: true, noData: true };
       }
 
-      if (res.status === 429 && attempt < maxRetries) {
-        const delay = RATE_LIMIT_BACKOFFS_MS[attempt] ?? 2000;
+      // Retry on transient failures: rate limit (429) and upstream outages
+      // (502 Bad Gateway, 503 Service Unavailable). Seznam's docs classify
+      // 5xx as "služba je mimo provoz" but many occurrences are short CDN
+      // or load-balancer glitches that resolve within seconds.
+      if (RETRYABLE_STATUSES.has(res.status) && attempt < maxRetries) {
+        const delay = RETRY_BACKOFFS_MS[attempt] ?? 2000;
         attempt += 1;
         await sleep(delay);
         continue;

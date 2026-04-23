@@ -43,7 +43,11 @@ export function buildReindexTools(deps: ToolDeps): ToolDefinition[] {
       if (!resolved.ok) return resolved.result;
 
       const res = await deps.api.reindexDocument(resolved.site.apiKey, urlArg.value);
-      if (!res.ok) return apiErrorToResult(deps, res.error, domainArg.value);
+      if (!res.ok) {
+        return apiErrorToResult(deps, res.error, domainArg.value, {
+          operation: "reindex",
+        });
+      }
 
       return textResult(t(lang, "reindex_ok", { url: urlArg.value }));
     },

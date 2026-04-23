@@ -83,10 +83,20 @@ export function resolveSite(
   return { ok: true, site };
 }
 
+export interface ApiErrorContext {
+  /**
+   * Which operation the tool is performing. Drives context-aware messages
+   * (notably 403, where `reindex` needs a write-key advice but `read`
+   * endpoints should get a neutral permissions message).
+   */
+  operation?: "reindex" | "read";
+}
+
 export function apiErrorToResult(
   deps: ToolDeps,
   error: ApiError,
   domain: string | undefined,
+  context: ApiErrorContext = {},
 ): ToolResult {
   const lang = deps.config.lang;
   switch (error.kind) {
@@ -95,8 +105,11 @@ export function apiErrorToResult(
         t(lang, "api_401_bad_key", { domain: domain ?? "" }),
         true,
       );
-    case "forbidden":
-      return textResult(t(lang, "api_403_forbidden"), true);
+    case "forbidden": {
+      const key =
+        context.operation === "reindex" ? "api_403_reindex" : "api_403_generic";
+      return textResult(t(lang, key), true);
+    }
     case "not_found":
       return textResult(t(lang, "api_404_not_found"), true);
     case "rate_limited":
@@ -139,6 +152,7 @@ export function unwrap<T>(
   deps: ToolDeps,
   result: ApiResult<T>,
   domain: string | undefined,
+  context: ApiErrorContext = {},
 ): { ok: true; data: T } | { ok: true; noData: true } | { ok: false; result: ToolResult } {
   if (result.ok) {
     if ("noData" in result) {
@@ -146,7 +160,10 @@ export function unwrap<T>(
     }
     return { ok: true, data: result.data };
   }
-  return { ok: false, result: apiErrorToResult(deps, result.error, domain) };
+  return {
+    ok: false,
+    result: apiErrorToResult(deps, result.error, domain, context),
+  };
 }
 
 export const domainSchema = {

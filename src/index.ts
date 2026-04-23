@@ -50,9 +50,7 @@ async function main(): Promise<void> {
     config = loadConfig();
   } catch (err) {
     if (err instanceof ConfigError) {
-      process.stderr.write(
-        `[seznam-webmaster-mcp] configuration error: ${err.message}\n`,
-      );
+      console.error(`[seznam-webmaster-mcp] configuration error: ${err.message}`);
       process.exit(1);
     }
     throw err;
@@ -103,12 +101,18 @@ async function main(): Promise<void> {
       const result = (await tool.handler(args)) as CallToolResult;
       return result;
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+      // Log the full detail (incl. stack) to stderr for operator diagnostics,
+      // but return only a localized generic message to the MCP client. Raw
+      // err.message can leak implementation paths, library names, or future
+      // internal structures and doesn't help the end user anyway.
+      const detail =
+        err instanceof Error ? (err.stack ?? err.message) : String(err);
+      console.error(`[seznam-webmaster-mcp] tool "${name}" threw: ${detail}`);
       const result: CallToolResult = {
         content: [
           {
             type: "text",
-            text: `[${name}] internal error: ${message}`,
+            text: t(config.lang, "internal_error", { tool: name }),
           },
         ],
         isError: true,
@@ -122,7 +126,7 @@ async function main(): Promise<void> {
 }
 
 main().catch((err) => {
-  const message = err instanceof Error ? err.stack ?? err.message : String(err);
-  process.stderr.write(`[seznam-webmaster-mcp] fatal: ${message}\n`);
+  const message = err instanceof Error ? (err.stack ?? err.message) : String(err);
+  console.error(`[seznam-webmaster-mcp] fatal: ${message}`);
   process.exit(1);
 });

@@ -34,6 +34,19 @@ function readPackageMeta(): { name: string; version: string } {
   return { name, version };
 }
 
+/**
+ * Sanitize a tool name before echoing it back to the client in error
+ * messages. Tool name comes from the MCP request, which is client-
+ * controlled — a malicious or buggy client could include ANSI escapes,
+ * control characters, or absurd length. JSON-RPC over stdio is a
+ * structured channel so the practical attack surface is small, but
+ * defensive output costs nothing.
+ */
+function sanitizeToolName(name: string): string {
+  const stripped = name.replace(/[^a-zA-Z0-9_\-:]/g, "?");
+  return stripped.length > 64 ? `${stripped.slice(0, 64)}…` : stripped;
+}
+
 function collectTools(deps: ToolDeps): ToolDefinition[] {
   return [
     ...buildStatusTools(deps),
@@ -90,7 +103,10 @@ async function main(): Promise<void> {
     if (!tool) {
       const result: CallToolResult = {
         content: [
-          { type: "text", text: t(config.lang, "unknown_tool", { name }) },
+          {
+            type: "text",
+            text: t(config.lang, "unknown_tool", { name: sanitizeToolName(name) }),
+          },
         ],
         isError: true,
       };
@@ -105,14 +121,17 @@ async function main(): Promise<void> {
       // but return only a localized generic message to the MCP client. Raw
       // err.message can leak implementation paths, library names, or future
       // internal structures and doesn't help the end user anyway.
+      const safeName = sanitizeToolName(name);
       const detail =
         err instanceof Error ? (err.stack ?? err.message) : String(err);
-      console.error(`[seznam-webmaster-mcp] tool "${name}" threw: ${detail}`);
+      console.error(
+        `[seznam-webmaster-mcp] tool "${safeName}" threw: ${detail}`,
+      );
       const result: CallToolResult = {
         content: [
           {
             type: "text",
-            text: t(config.lang, "internal_error", { tool: name }),
+            text: t(config.lang, "internal_error", { tool: safeName }),
           },
         ],
         isError: true,

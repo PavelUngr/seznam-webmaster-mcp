@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Build + smoke (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ["18", "20", "22"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js ${{ matrix.node }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Smoke test
+        # `npm run smoke` rebuilds — invoke node directly to avoid double-build
+        run: node tests/smoke.mjs
+
+      - name: Audit production dependencies
+        # Production-only audit; dev deps churn faster and aren't shipped.
+        # Continue-on-error so a fresh CVE in an unrelated dep doesn't
+        # block legitimate PRs — surface advisories without gating merges.
+        run: npm audit --omit=dev --audit-level=high
+        continue-on-error: true

@@ -19,27 +19,33 @@ klienta.
 
 ## Stav
 
-**Verze 0.1.3 — veřejně publikovaná.** Balíček běží na npm, kód a releasy jsou na GitHubu.
+**Verze 0.1.4 — veřejně publikovaná.** Balíček běží na npm, kód a releasy jsou na GitHubu, CI běží na každý push.
 
-- **npm:** [`@pavelungr/seznam-webmaster-mcp@0.1.3`](https://www.npmjs.com/package/@pavelungr/seznam-webmaster-mcp), tag `latest`
-- **GitHub:** [`PavelUngr/seznam-webmaster-mcp`](https://github.com/PavelUngr/seznam-webmaster-mcp), default branch `main`, tagy `v0.1.0`, `v0.1.1`, `v0.1.2`, `v0.1.3` s GitHub Releases
+- **npm:** [`@pavelungr/seznam-webmaster-mcp@0.1.4`](https://www.npmjs.com/package/@pavelungr/seznam-webmaster-mcp), tag `latest`
+- **GitHub:** [`PavelUngr/seznam-webmaster-mcp`](https://github.com/PavelUngr/seznam-webmaster-mcp), default branch `main`, tagy `v0.1.0` až `v0.1.4` s GitHub Releases
+- **CI:** GitHub Actions workflow `.github/workflows/ci.yml` — build + smoke test + `npm audit` na Node 18/20/22 při každém push do `main`/`dev` a každém PR
 - **Instalace:** `npx @pavelungr/seznam-webmaster-mcp` (standard MCP spouštění přes stdio)
 - **Kompatibilní MCP klienti:** Claude Desktop, Claude Code, OpenAI Codex CLI, Gemini CLI, Cursor
 
 Hotovo v kódu:
 - 7 MCP nástrojů (status, documents, history, reindex, database-info, sites)
-- HTTP klient s retry na 429, 502, 503 (500/1000/2000 ms) a timeout 30 s přes `AbortSignal`
+- HTTP klient s retry na 429/502/503 (500/1000/2000 ms) a timeout 30 s přes `AbortSignal`
 - Parsing `SEZNAM_WM_SITES` + `SEZNAM_WM_LANG` s validací a varováním u duplicit
-- Robustní `normalizeDomain` — strip scheme, path, port (zachovat `www.`)
+- Robustní `normalizeDomain` — strip scheme, userinfo, path, port, trailing dot (zachovat `www.`)
 - Lokalizace cs (výchozí) + en, všechny chybové hlášky obsahují návod na řešení
 - Context-aware HTTP 403 (reindex vs. read)
 - Striktní validace vstupů: YYYY-MM-DD jako reálné datum v kalendáři, `date_from ≤ date_to`, URL musí mít http(s) scheme
-- Redakce API klíče (`redactApiKey`) z každého upstream error bodu před odesláním klientovi
+- **Redakce API klíče** přes `redactApiKey` ze všech kanálů, kudy by mohl odejít (`readErrorDetail`, fetch error message)
+- Sanitizace tool name v error hlášce — chrání před ANSI escape sequences a podobnými payloady
 - Lokalizovaná chybová hláška pro interní výjimky (stack jen do stderr, klient dostane generic)
 - TS modely rozšířené o pole přítomná v reálném API (ale ne ve Swagger spec): `doc_count`, `content` alias v history, `webserver`, `ResponseHeader.content`
 - Verze serveru se čte z `package.json` za běhu (žádný hardcoded string)
+- Build čistí `dist/` před `tsc` (žádný shipping stale souborů)
 - README.md (sloučený CS+EN s anchor navigací), LICENSE (MIT), .gitignore, .npmignore
+- CHANGELOG.md (Keep a Changelog formát)
 - docs/architecture.md, docs/conventions.md, docs/gotchas.md
+- tests/smoke.mjs (30 assertů, runable přes `npm run smoke`)
+- .github/workflows/ci.yml (build + smoke + audit na Node 18/20/22)
 
 ## Roadmap / Naplánované změny
 
@@ -65,13 +71,7 @@ SDK ho označuje jako `@deprecated` ve prospěch `McpServer`, ale migrace není 
 
 ## Changelog
 
-**v0.1.3** — Security + robustness release. (a) Redakce `key=` z upstream error bodu přes `redactApiKey()` v `src/api.ts` — uzavírá P1 leak, kde Cloudflare challenge pages mohly echonout API klíč zpět klientovi. (b) Context-aware HTTP 403: `reindex_url` dostává radu o write klíči (`api_403_reindex`), ostatní nástroje neutrální zprávu (`api_403_generic`). (c) `normalizeDomain` stripuje `http(s)://`, path, port — LLM vstupy typu `https://example.cz/` teď matchnou configuraci. (d) TS modely rozšířené o optional pole `doc_count`, `content` alias v history, `webserver`, `ResponseHeader.content` podle reálného API (Swagger spec je neúplný). (e) Retry na 502/503 stejným backoffem jako 429. (f) Interní výjimky: plný detail do stderr, klient dostane lokalizovaný `internal_error`. (g) `console.error` místo `process.stderr.write`. (h) Lokalizovaná `(no data)` hláška (`no_data_simple`). (i) Pin MCP SDK na `^1.29.0`.
-
-**v0.1.2** — Bugfix release. (a) Všechny chybové hlášky přepsané tak, aby říkaly *co* se stalo *i co s tím dělat* — včetně odkazů do Seznam Webmasteru, kde řešit ověření klíče, změnu oprávnění atd. (b) Přísnější validace vstupů: datumy se ověřují proti kalendáři (odmítne `2026-02-31`), kontroluje se `date_from ≤ date_to`, URL musí být absolutní a se schématem `http(s)`. (c) Odstraněn zavádějící mapping HTTP 400 → „missing API key" (dead code — sami vždy posíláme `?key=`, takže skutečné „missing key" nikdy nenastane); 400 teď padá do generického handleru, který ukáže skutečný detail ze Seznamu. (d) MCP server advertisuje verzi čtenou z `package.json` za běhu (dřív hardcoded `0.1.0`).
-
-**v0.1.1** — Sjednocení českého a anglického README do jednoho `README.md` (česky první, anglicky po skoku dole). `README.cs.md` ponechán jako krátký pointer. Žádné změny v kódu.
-
-**v0.1.0** — První veřejná publikace. Kompletní sada 7 MCP nástrojů, timeout 30 s, 429 retry, cs/en lokalizace, dokumentace v češtině i angličtině.
+Podrobný changelog s každou verzí je v samostatném souboru [CHANGELOG.md](CHANGELOG.md) (formát Keep a Changelog). Tady už ho nevedeme — Stav výše drží aktuální verzi a CHANGELOG.md drží historii. Při releasu novou položku do CHANGELOG.md, ne sem.
 
 ## Release workflow (závazný standard)
 
@@ -86,11 +86,12 @@ Při **jakékoli změně**, která se má dostat na npm / GitHub (bugfix, nová 
 4. **Pushni na GitHub:** `git push --follow-tags origin main`. Flag `--follow-tags` zajistí, že se s commitem pushne i tag.
 5. **Publikuj na npm:** `npm publish --access public`. Flag `--access public` je u scoped balíčku vždy potřeba, jinak npm zkusí privátní publish.
 6. **Vytvoř GitHub Release** k tomu tagu: `gh release create vX.Y.Z --latest --title "vX.Y.Z — stručný popis" --notes "..."`. Release notes stručně: co se změnilo, jestli je to breaking, jak udělat upgrade. Bez GitHub Release tag existuje, ale není vidět v sekci Releases — lidé o nové verzi nezví.
-7. **Aktualizuj CLAUDE.md:**
+7. **Aktualizuj `CHANGELOG.md`** — přidej novou položku nahoru ve formátu Keep a Changelog (sekce `### Security` / `### Fixed` / `### Added` / `### Changed` / `### Removed` podle toho, co se mění). Aktualizuj sekci porovnávacích odkazů na konci.
+8. **Aktualizuj CLAUDE.md:**
     - sekci **Stav** na novou verzi (npm link, aktuální tag)
-    - sekci **Changelog** přidat novou položku nahoru
     - pokud změna zavádí nové chování / konvenci / gotchu, aktualizuj i `docs/architecture.md`, `docs/conventions.md` nebo `docs/gotchas.md`
-8. **Commitni CLAUDE.md změny** (může být samostatný commit „docs: bump CLAUDE.md to vX.Y.Z") a push. Bez tohoto kroku další session v Claude Code neuvidí, že jsi něco vydal.
+    - **NE** přidávej do CLAUDE.md changelog — to patří do `CHANGELOG.md`. CLAUDE.md drží jen aktuální stav.
+9. **Commitni docs změny** (`CHANGELOG.md` + `CLAUDE.md` + případně `docs/*.md`) jako samostatný commit „docs: bump to vX.Y.Z" a push. Bez tohoto kroku další session v Claude Code neuvidí, že jsi něco vydal.
 
 Pravidlo #1: **všechny tři zdroje** (npm, GitHub, CLAUDE.md) musí mít stejný obraz stavu. Když se jeden rozejde, příští release workflow se zasekne na kontrole.
 

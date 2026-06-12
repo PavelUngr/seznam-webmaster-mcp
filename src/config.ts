@@ -19,14 +19,17 @@ export class ConfigError extends Error {
 
 /**
  * Normalize a domain string so that LLM-shaped inputs like
- * `https://example.cz/`, `EXAMPLE.CZ`, or `example.cz:443` all match the
- * same configured entry.
+ * `https://example.cz/`, `EXAMPLE.CZ`, `example.cz:443`, or
+ * `https://user:pass@example.cz/` all match the same configured entry.
  *
- * Steps:
+ * Steps (order matters):
  * 1. trim + lowercase
  * 2. strip scheme (`http://`, `https://`)
- * 3. strip everything after the first `/` (path, query, fragment)
- * 4. strip port (`:nnn`)
+ * 3. strip userinfo (`user:pass@`) — must come BEFORE port split so the
+ *    `:` in `user:pass` doesn't get treated as a port separator
+ * 4. strip everything after the first `/` (path, query, fragment)
+ * 5. strip port (`:nnn`)
+ * 6. strip trailing dot (`example.cz.` is a valid FQDN form)
  *
  * We intentionally do NOT strip `www.` — a site configured as `www.example.cz`
  * is treated as a different entry from `example.cz`. That matches how
@@ -36,10 +39,13 @@ export class ConfigError extends Error {
 export function normalizeDomain(domain: string): string {
   let s = domain.trim().toLowerCase();
   s = s.replace(/^https?:\/\//, "");
+  const atIdx = s.lastIndexOf("@");
+  if (atIdx !== -1) s = s.slice(atIdx + 1);
   const slashIdx = s.indexOf("/");
   if (slashIdx !== -1) s = s.slice(0, slashIdx);
   const colonIdx = s.indexOf(":");
   if (colonIdx !== -1) s = s.slice(0, colonIdx);
+  if (s.endsWith(".")) s = s.slice(0, -1);
   return s;
 }
 

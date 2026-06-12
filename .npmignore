@@ -1,5 +1,6 @@
 src/
 docs/
+tests/
 node_modules/
 .github/
 .gitignore
@@ -7,6 +8,7 @@ node_modules/
 .idea/
 tsconfig.json
 CLAUDE.md
+CHANGELOG.md
 *.tsbuildinfo
 *.log
 .env

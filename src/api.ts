@@ -213,13 +213,17 @@ export class ApiClient {
           e.name === "TimeoutError" ||
           e.name === "AbortError" ||
           (e as { code?: string }).code === "ABORT_ERR";
+        // fetch() error messages from Node can include the request URL
+        // (DNS failures, TLS errors). The URL contains ?key=... so we must
+        // redact before propagating, same as readErrorDetail does.
+        const rawMessage = isTimeout
+          ? `Request timed out after ${timeoutMs} ms`
+          : e.message;
         return {
           ok: false,
           error: new ApiError({
             kind: "network",
-            message: isTimeout
-              ? `Request timed out after ${timeoutMs} ms`
-              : e.message,
+            message: redactApiKey(rawMessage),
           }),
         };
       }

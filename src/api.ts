@@ -15,18 +15,19 @@ export interface WebDocuments {
   redirect: WebUrl;
   index: WebUrl;
   error: WebUrl;
-  /** Live API: total document count across all categories. Not in Swagger spec. */
-  doc_count?: number;
+  /** Live API: pages the robot knows exist (count only, URL sample is empty). Not in Swagger model. */
+  doc_count?: WebUrl;
 }
 
 export interface WebHistoryCounts {
   error: number;
+  /** Pages discovered by the robot. Deprecated by Seznam, replaced by `doc_count` (same value). NOT the same as `content`. */
   downloaded: number;
   redirected: number;
   indexed: number;
-  /** Live API: same as downloaded (label alias). Not in Swagger spec. */
+  /** Live API: pages the robot fetches and knows the content of. Not in Swagger model. */
   content?: number;
-  /** Live API: total document count for the day. Not in Swagger spec. */
+  /** Live API: pages the robot knows exist. Not in Swagger model. */
   doc_count?: number;
 }
 
@@ -38,7 +39,7 @@ export interface WebHistory {
 export interface Web {
   documents: WebDocuments;
   history: WebHistory[];
-  /** Live API: reported web server identifier (e.g. nginx). Not in Swagger spec. */
+  /** Live API: identifier of the site the key belongs to — reversed domain plus port, e.g. `cz.example.!443`. Not in Swagger model. */
   webserver?: string;
 }
 

@@ -2,7 +2,22 @@
 
 Všechny významné změny v `@pavelungr/seznam-webmaster-mcp` jsou zde. Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/) a projekt drží [Semver](https://semver.org/lang/cs/).
 
-## [0.1.4] — 2026-04-23
+## [0.1.5] — 2026-10-07
+
+První verze na npm od 0.1.3. Obsahuje všechny změny z 0.1.4 (viz níže), která se na npm nikdy nedostala.
+
+### Changed
+- **Publikace přes npm Trusted Publishing se schvalováním.** Balíček publikuje jen workflow `.github/workflows/publish.yml` přes OIDC, bez jakéhokoli npm tokenu. Spouští ho publikování GitHub Release. Workflow verzi jen připraví (`npm stage publish`) a živá je až po schválení správcem na npmjs.com s 2FA. npm k verzi automaticky přidává provenance.
+- **`repository`, `homepage` a `bugs` v `package.json`** ukazují na `github.com/PavelUngr/...` se správnou velikostí písmen. Trusted Publishing vyžaduje přesnou shodu.
+
+### Fixed
+- **Výklad kategorie `downloaded` v historii.** Popis nástroje `get_index_history` tvrdil, že `downloaded` je totéž co `content`. Podle aktuální dokumentace Seznamu a živých dat jsou `downloaded` stránky objevené robotem, kategorie je zastaralá a nahrazuje ji `doc_count`; `content` jsou stránky, které robot stahuje a zná jejich obsah. AI asistent podle popisu nástroje interpretuje data, takže chybný výklad se propisoval do odpovědí.
+- **Popis nástroje `get_indexed_pages`** zmiňuje kategorii `doc_count` (jen počet, bez vzorku URL).
+- **TypeScript modely:** `WebDocuments.doc_count` je objekt `{count, urls}`, ne číslo; `Web.webserver` je identifikátor webu (obrácená doména a port), ne typ serveru.
+
+## [0.1.4] — 2026-06-12 — jen git tag, na npm nevydáno
+
+Publikace selhala na vypršeném npm tokenu (401). Tag `v0.1.4` na GitHubu existuje, ale balíček v této verzi na npm není. Všechny změny vyšly v 0.1.5.
 
 ### Security
 - **Redakce API klíče i v error message z `fetch()`.** Síťové chyby (DNS, TLS, timeout) mohou v některých Node runtime obsahovat request URL v `e.message`. Ta URL nese `?key=...`. `redactApiKey()` se teď aplikuje i tam, ne jen na `readErrorDetail`. Uzavírá zbylou cestu k leaku, který v0.1.3 opravil jen z poloviny.
@@ -60,7 +75,8 @@ Všechny významné změny v `@pavelungr/seznam-webmaster-mcp` jsou zde. Formát
 - Lokalizace cs (výchozí) + en.
 - Podpora Claude Desktop, Claude Code, OpenAI Codex CLI, Gemini CLI, Cursor.
 
-[0.1.4]: https://github.com/pavelungr/seznam-webmaster-mcp/releases/tag/v0.1.4
+[0.1.5]: https://github.com/PavelUngr/seznam-webmaster-mcp/releases/tag/v0.1.5
+[0.1.4]: https://github.com/PavelUngr/seznam-webmaster-mcp/tree/v0.1.4
 [0.1.3]: https://github.com/pavelungr/seznam-webmaster-mcp/releases/tag/v0.1.3
 [0.1.2]: https://github.com/pavelungr/seznam-webmaster-mcp/releases/tag/v0.1.2
 [0.1.1]: https://github.com/pavelungr/seznam-webmaster-mcp/releases/tag/v0.1.1

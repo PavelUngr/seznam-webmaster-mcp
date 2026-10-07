@@ -18,7 +18,7 @@ export function buildDocumentsTools(deps: ToolDeps): ToolDefinition[] {
   const getIndexedPages: ToolDefinition = {
     name: "get_indexed_pages",
     description:
-      "Get per-category page counts for a configured site (content/redirect/index/error) plus a random sample of up to 1000 URLs per category. Calls GET /web/documents.",
+      "Get per-category page counts for a configured site plus a random sample of up to 1000 URLs per category. Categories: doc_count = pages the robot knows exist (count only, no URL sample); content = pages the robot fetched; redirect = redirects; index = pages in the index; error = error pages. Calls GET /web/documents.",
     inputSchema: {
       type: "object",
       properties: { domain: domainSchema },

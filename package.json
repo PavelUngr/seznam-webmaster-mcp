@@ -6,11 +6,11 @@
   "author": "Pavel Ungr <jsem@pavelungr.cz>",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/pavelungr/seznam-webmaster-mcp.git"
+    "url": "git+https://github.com/PavelUngr/seznam-webmaster-mcp.git"
   },
-  "homepage": "https://github.com/pavelungr/seznam-webmaster-mcp",
+  "homepage": "https://github.com/PavelUngr/seznam-webmaster-mcp",
   "bugs": {
-    "url": "https://github.com/pavelungr/seznam-webmaster-mcp/issues"
+    "url": "https://github.com/PavelUngr/seznam-webmaster-mcp/issues"
   },
   "keywords": [
     "mcp",

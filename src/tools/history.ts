@@ -44,7 +44,7 @@ export function buildHistoryTools(deps: ToolDeps): ToolDefinition[] {
   const getIndexHistory: ToolDefinition = {
     name: "get_index_history",
     description:
-      "Get per-day page counts history for a configured site. Categories returned by the API are named: error, downloaded (= content), redirected (= redirect), indexed (= index). Calls GET /web/documents-history.",
+      "Get per-day page counts history for a configured site. Categories: doc_count = pages the robot knows exist; content = pages the robot fetches and knows the content of; downloaded = deprecated alias of doc_count (pages discovered by the robot, NOT the same as content); redirected = redirects; indexed = pages in the index; error = error pages. Calls GET /web/documents-history.",
     inputSchema: {
       type: "object",
       properties: {

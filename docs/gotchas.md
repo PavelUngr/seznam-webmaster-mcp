@@ -65,13 +65,24 @@ Toto je neveřejné pravidlo, ale veřejně slíbené v README a v `docs/convent
 
 Swagger spec, z něhož jsou odvozeny TS modely `Web`, `WebDocuments`, `WebHistoryCounts`, `DocumentInfo`, je zjevně starší/neúplný. Třetí audit (23. 4. 2026) ověřil, že živé API vrací navíc:
 
-- `WebDocuments.doc_count` (celkový počet stránek napříč kategoriemi)
+- `WebDocuments.doc_count` (stránky, o kterých robot ví; objekt `{count, urls}` jako ostatní kategorie, ale vzorek URL je prázdný — původně jsme ho chybně typovali jako číslo)
 - `WebHistoryCounts.content` (stránky, které robot stahuje a zná obsah — **ne** alias pro `downloaded`, jak jsme původně mysleli) a `WebHistoryCounts.doc_count` (stránky, o kterých robot ví; nahrazuje zastaralé `downloaded`)
-- `Web.webserver` (identifikace webového serveru)
+- `Web.webserver` (identifikátor webu, ke kterému klíč patří: obrácená doména a port, např. `cz.tsmkurzy.!443`; nejde o typ serveru jako nginx, jak naznačoval název)
 - `DocumentInfo.responseHeaders[].content` (alias pro `value` — někdy místo něj)
 
-Tyhle pole máme od v0.1.3 jako `optional` v typech (`WebDocuments.doc_count?: number` atd.), plus nový `ResponseHeader` interface pro `value`/`content` dualitu. Dnes to neškodí, protože server všude dumpuje raw JSON přes `JSON.stringify`. Pokud se v budoucnu přidají formattery, selektory nebo testy opřené o typy, mohlo by se to objevit jako regrese. Typy jsou *best effort*, ne kontrakt — API drift je očekávané chování.
+Tyhle pole máme od v0.1.3 jako `optional` v typech (`WebDocuments.doc_count?: WebUrl` atd., význam opraven podle živých dat ve v0.1.5), plus nový `ResponseHeader` interface pro `value`/`content` dualitu. Dnes to neškodí, protože server všude dumpuje raw JSON přes `JSON.stringify`. Pokud se v budoucnu přidají formattery, selektory nebo testy opřené o typy, mohlo by se to objevit jako regrese. Typy jsou *best effort*, ne kontrakt — API drift je očekávané chování.
 
 ## Context-aware 403
 
 Ne každé 403 od Seznam API znamená totéž. Pro `reindex_url` je typický důvod chybějící write oprávnění klíče. Pro read endpointy může jít o omezení přístupu nebo neověřený web. Proto `apiErrorToResult` přijímá od v0.1.3 optional `context: { operation: "reindex" | "read" }` a mapuje na `api_403_reindex` (reindex-specifická rada) nebo `api_403_generic` (neutrální zpráva o oprávněních). Reindex nástroj si kontext explicitně nastavuje; ostatní nástroje dostanou generický default.
+
+## npm Trusted Publishing a staged publishing
+
+Zjištěno při nastavování 2026-10-07. Proč tento způsob publikace používáme, je v CLAUDE.md v sekci Rozhodnutí.
+
+- **Workflow soubor musí na GitHubu existovat dřív, než se Trusted Publisher uloží.** Bez `.github/workflows/publish.yml` vrátilo „Set up connection" jen `{"message":"Not Found"}`. Dokumentace npm přitom tvrdí, že nastavení při ukládání nekontroluje; formulář je novější než ona a pod polem uvádí „Must exist in `.github/workflows/`".
+- **Nové spojení je ve stavu „Pending validation"** a musí se ověřit první publikací zhruba do 48 hodin (npm ukáže přesný termín). Jinak se musí založit znovu.
+- **Vlastník, repozitář a název workflow rozlišují velikost písmen a po uložení nejdou změnit**, jen smazat a založit znovu. GitHub účet je `PavelUngr`, ne `pavelungr`. Stejně přesně musí sedět `repository.url` v `package.json`, jinak publikace selže.
+- **Label** je jen volitelný popisek pro orientaci. **Environment name** nechat prázdné, dokud workflow nedeklaruje GitHub environment se stejným názvem.
+- **Staged publishing:** `npm stage publish` vyžaduje npm CLI ≥ 11.15.0 (Trusted Publishing samotný ≥ 11.5.1), proto si ho workflow instaluje. Schválit verzi jde jen s interaktivním 2FA (tlačítko Approve na npmjs.com nebo `npm stage approve`), z CI ani tokenem ne. Staged publishing nejde použít pro úplně první publikaci nového balíčku.
+- **`publish.yml` se spouští jen publikováním GitHub Release**, ne pushnutím tagu. Pushnutý tag bez Release nic nevydá.

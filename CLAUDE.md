@@ -49,16 +49,16 @@ Hotovo v kódu:
 
 ## Roadmap / Naplánované změny
 
-### v0.1.5 — dohodnuto 2026-10-07, čeká na pokyn ke spuštění
+### v0.1.5 — ve vydávání od 2026-10-07
 
 Vydání obsahuje všechny opravy z 0.1.4 (ta na npm nikdy nebyla) a navíc:
 
-- **Publikace přes npm Trusted Publishing (OIDC z GitHub Actions)** místo tokenu v `~/.npmrc`. Důvod: npm token vypršel podruhé za necelé dva měsíce a kvůli tomu visí bezpečnostní opravy čtyři měsíce mimo npm. S Trusted Publishing žádný dlouhodobý token neexistuje, publikuje se jen z workflow v tomto repozitáři a npm k balíčku automaticky přidá provenance. Požadavky podle [dokumentace npm](https://docs.npmjs.com/trusted-publishers): npm CLI ≥ 11.5.1, Node ≥ 22.14.0, runner hostovaný GitHubem, oprávnění `id-token: write`, `repository.url` v `package.json` přesně shodné s repozitářem včetně velikosti písmen.
-  - nový workflow `.github/workflows/publish.yml`, spouští se publikováním GitHub Release, projde build a smoke test a publikuje
-  - `repository.url` (a `homepage`, `bugs`) v `package.json` opravit z `pavelungr` na `PavelUngr`. Kvůli shodě velikosti písmen by jinak publikace selhala.
-  - release workflow níže upravit: `npm publish` lokálně odpadá, publikaci spouští `gh release create`
-  - na npmjs.com nastaví uživatel Trusted Publisher: `PavelUngr` / `seznam-webmaster-mcp` / `publish.yml`, bez environmentu. Po první úspěšné publikaci přepnout Publishing access na „Require two-factor authentication and disallow tokens" a starý token zrušit.
-  - **Proč 0.1.5, ne 0.1.4:** tag `v0.1.4` ukazuje na commit bez publikačního workflow a se špatnou velikostí písmen v `repository.url`. Pushnutý tag nepřesouváme, 0.1.4 zůstane jen jako git tag (zaznamenat do CHANGELOG.md).
+- **Publikace přes npm Trusted Publishing (OIDC z GitHub Actions) se staged publishing** místo tokenu v `~/.npmrc`. Důvody a nastavení jsou v sekcích Rozhodnutí a Předpoklady pro release.
+  - workflow `.github/workflows/publish.yml` (pushnutý dřív, 2026-10-07, protože formulář npm vyžaduje existující soubor)
+  - `repository.url` (a `homepage`, `bugs`) v `package.json` opravit z `pavelungr` na `PavelUngr`. Trusted Publishing vyžaduje přesnou shodu včetně velikosti písmen.
+  - **Termín:** npm chce konfiguraci Trusted Publisheru ověřit první publikací **do 2026-10-09 19:46 UTC**, jinak je potřeba ji založit znovu.
+  - Po prvním úspěšném vydání přepnout na npm Publishing access na „Require two-factor authentication and disallow tokens" a zrušit starý (už vypršelý) token.
+  - **Proč 0.1.5, ne 0.1.4:** tag `v0.1.4` ukazuje na commit bez publikačního workflow a se špatnou velikostí písmen v `repository.url`. Pushnutý tag nepřesouváme, 0.1.4 zůstane jen jako git tag (zaznamenáno v CHANGELOG.md).
 - **Opravit výklad `downloaded` v kódu.** Popis nástroje `get_index_history` v `src/tools/history.ts` tvrdí „downloaded (= content)" a komentář u `WebHistoryCounts.content` v `src/api.ts` „same as downloaded". Obojí je špatně (viz sekce API níže). Popis nástroje čte AI asistent, takže chybný výklad se propisuje do jeho odpovědí.
 
 ### v0.2.0 nebo později
@@ -81,6 +81,22 @@ SDK ho označuje jako `@deprecated` ve prospěch `McpServer`, ale migrace není 
 
 **Co to znamená pro budoucí sessions**: když narazíš na deprecation marker u `Server` a budeš v pokušení migrovat, přečti si tohle a zvaž, jestli jsi ochoten vyřešit i18n preservation. Pokud ano, plán je: (1) nejdřív unit testy (v0.2.0), (2) pak migrace s custom `errorMap` čtoucí lang z closure per-handler, (3) důkladný smoke test všech chybových cest v obou jazycích.
 
+### Publikace přes Trusted Publishing se schvalováním (staged)
+
+**Rozhodnuto 2026-10-07.** Na npm se publikuje jen z workflow `publish.yml` přes OIDC, bez jakéhokoli tokenu, a workflow smí pouze `npm stage publish`. Verze tedy čeká ve frontě, dokud ji uživatel na npmjs.com neschválí (Approve + 2FA).
+
+- Proč Trusted Publishing: granular token s „Bypass 2FA" vypršel podruhé za necelé dva měsíce a kvůli tomu se bezpečnostní opravy z 0.1.4 čtyři měsíce nedostaly na npm. Bez tokenu nic nevyprší a nic nejde ukrást z `~/.npmrc`.
+- Proč staged a ne přímý `npm publish`: npm přímou publikaci u Trusted Publisheru výslovně označuje „Not recommended". Se staged nic nejde ven bez 2FA uživatele, ani kdyby někdo ovládl GitHub účet nebo workflow. Balíček běží uživatelům na počítači a pracuje s jejich API klíči, takže ochrana dodavatelského řetězce má váhu. Cena je jedno schválení na webu u každého vydání.
+- Přechod na přímou publikaci by znamenal zaškrtnout „Allow npm publish" u Trusted Publisheru na npm a ve workflow změnit `npm stage publish` na `npm publish`.
+
+### Kontext pro HTTP 403 zůstává ruční
+
+**Rozhodnuto 2026-04-23.** Rozlišení 403 pro reindex a čtecí endpointy se předává ručně parametrem `{ operation: "reindex" }` z `reindex.ts`, ne automaticky z `ApiClient`. Zapisovací endpoint je jediný a obecný mechanismus by byl zbytečně složitý. Pokud přibude další zapisovací endpoint, přesunout informaci o zápisu do `ApiClient` (typicky do `RequestOptions`), aby se na kontext nedalo zapomenout.
+
+### TypeScript modely API s explicitními volitelnými poli
+
+**Rozhodnuto 2026-04-23.** Pole, která živé API vrací navíc proti swaggeru (`doc_count`, `content` v historii, `webserver`, `ResponseHeader.content`), jsou v typech jako explicitní volitelná pole, ne jako obecný indexer `[key: string]: unknown`. Explicitní pole zároveň slouží jako dokumentace toho, co jsme v API reálně viděli. Server payload stejně předává klientovi beze změny přes `JSON.stringify`, takže na typy se za běhu nic nespoléhá.
+
 ## Changelog
 
 Podrobný changelog s každou verzí je v samostatném souboru [CHANGELOG.md](CHANGELOG.md) (formát Keep a Changelog). Tady už ho nevedeme — Stav výše drží aktuální verzi a CHANGELOG.md drží historii. Při releasu novou položku do CHANGELOG.md, ne sem.
@@ -89,21 +105,22 @@ Podrobný changelog s každou verzí je v samostatném souboru [CHANGELOG.md](CH
 
 Při **jakékoli změně**, která se má dostat na npm / GitHub (bugfix, nová funkce, úprava dokumentace), postupuj přesně takhle. Pořadí je důležité, každý krok má svůj důvod.
 
-1. **Implementuj změnu a ověř, že je kompletní.** Build (`npm run build`) musí projít bez chyb, smoke-test (pokud existuje) musí projít, všechny zasažené nástroje musí dál fungovat.
-2. **Commitni do gitu** s popisem, který říká *proč*, ne jen *co*. Konvence commit zpráv — viz [commit konvence](#commit-konvence) níže.
-3. **Bumpni verzi balíčku** přes `npm version <patch|minor|major>`. Ten zároveň udělá commit (typu „0.1.2") a git tag (`v0.1.2`).
+1. **Implementuj změnu a ověř, že je kompletní.** Build a smoke test (`npm run smoke`) musí projít, všechny zasažené nástroje musí dál fungovat.
+2. **Aktualizuj `CHANGELOG.md`** — novou položku nahoru ve formátu Keep a Changelog (sekce `### Security` / `### Fixed` / `### Added` / `### Changed` / `### Removed` podle toho, co se mění) a porovnávací odkazy na konci. Musí být v commitu před bumpem verze, aby byla součástí taggovaného commitu.
+3. **Commitni do gitu** s popisem, který říká *proč*, ne jen *co*. Konvence commit zpráv — viz [commit konvence](#commit-konvence) níže.
+4. **Bumpni verzi balíčku** přes `npm version <patch|minor|major>`. Ten zároveň udělá commit (typu „0.1.2") a git tag (`v0.1.2`).
     - `patch` — bugfix, drobnost, oprava dokumentace (0.1.1 → 0.1.2)
     - `minor` — nová funkce nebo nástroj (0.1.x → 0.2.0)
     - `major` — breaking change (změna formátu env proměnných, odstranění nástroje) (0.x.x → 1.0.0)
-4. **Pushni na GitHub:** `git push --follow-tags origin main`. Flag `--follow-tags` zajistí, že se s commitem pushne i tag.
-5. **Publikuj na npm:** `npm publish --access public`. Flag `--access public` je u scoped balíčku vždy potřeba, jinak npm zkusí privátní publish.
-6. **Vytvoř GitHub Release** k tomu tagu: `gh release create vX.Y.Z --latest --title "vX.Y.Z — stručný popis" --notes "..."`. Release notes stručně: co se změnilo, jestli je to breaking, jak udělat upgrade. Bez GitHub Release tag existuje, ale není vidět v sekci Releases — lidé o nové verzi nezví.
-7. **Aktualizuj `CHANGELOG.md`** — přidej novou položku nahoru ve formátu Keep a Changelog (sekce `### Security` / `### Fixed` / `### Added` / `### Changed` / `### Removed` podle toho, co se mění). Aktualizuj sekci porovnávacích odkazů na konci.
-8. **Aktualizuj CLAUDE.md:**
+5. **Pushni na GitHub:** `git push --follow-tags origin main`. Flag `--follow-tags` zajistí, že se s commitem pushne i tag. Push sám nic nepublikuje, jen spustí CI (`ci.yml`). Počkej, až CI projde.
+6. **Vytvoř GitHub Release** k tagu: `gh release create vX.Y.Z --latest --title "vX.Y.Z — stručný popis" --notes "..."`. Release notes stručně: co se změnilo, jestli je to breaking, jak udělat upgrade. Publikováním release se spustí `publish.yml`: zkontroluje shodu tagu s `package.json`, buildne, projde smoke test a přes Trusted Publishing (OIDC) zavolá `npm stage publish`. Lokálně se `npm publish` nikdy nespouští.
+7. **Ověř běh workflow** (`gh run list --workflow publish.yml`) a z jeho logu vytáhni informace o připravené verzi.
+8. **Požádej uživatele o schválení.** Verze čeká ve frontě na npm, dokud ji uživatel na npmjs.com neschválí (Approve + 2FA). Claude to udělat nemůže, schválení vyžaduje interaktivní 2FA. Po schválení ověř `npm view @pavelungr/seznam-webmaster-mcp version`.
+9. **Aktualizuj CLAUDE.md:**
     - sekci **Stav** na novou verzi (npm link, aktuální tag)
     - pokud změna zavádí nové chování / konvenci / gotchu, aktualizuj i `docs/architecture.md`, `docs/conventions.md` nebo `docs/gotchas.md`
     - **NE** přidávej do CLAUDE.md changelog — to patří do `CHANGELOG.md`. CLAUDE.md drží jen aktuální stav.
-9. **Commitni docs změny** (`CHANGELOG.md` + `CLAUDE.md` + případně `docs/*.md`) jako samostatný commit „docs: bump to vX.Y.Z" a push. Bez tohoto kroku další session v Claude Code neuvidí, že jsi něco vydal.
+10. **Commitni docs změny** jako samostatný commit „docs: bump to vX.Y.Z" a push. Bez tohoto kroku další session v Claude Code neuvidí, že jsi něco vydal.
 
 Pravidlo #1: **všechny tři zdroje** (npm, GitHub, CLAUDE.md) musí mít stejný obraz stavu. Když se jeden rozejde, příští release workflow se zasekne na kontrole.
 
@@ -119,8 +136,8 @@ Pravidlo #1: **všechny tři zdroje** (npm, GitHub, CLAUDE.md) musí mít stejn�
 
 Tyto věci jsou nastaveny a fungují. Kontroluj jen při změně HW / nového počítače.
 
-- **npm přihlášení** přes granular access token s „Bypass 2FA" v `~/.npmrc`. Expiracia tokenu — viz npmjs.com → Settings → Access Tokens.
-- **GitHub auth** přes `gh` CLI (`gh auth status`) — používá se pro `gh release create`.
+- **npm Trusted Publisher** (od 2026-10-07), nastavený na npmjs.com → balíček → Settings → Trusted Publisher: GitHub Actions, `PavelUngr` / `seznam-webmaster-mcp` / `publish.yml`, bez environmentu, povolené jen `npm stage publish`. Vlastník, repozitář a workflow nejdou upravit, jen smazat a založit znovu. Žádný npm token se nepoužívá. Token v `~/.npmrc` je vypršelý a k vydání ho nepotřebujeme.
+- **GitHub auth** přes `gh` CLI (`gh auth status`) — používá se pro `gh release create` a kontrolu běhů workflow.
 - **Scope `@pavelungr` na npm** je aktivní a public.
 
 ## Historie publikace (pro pochopení, proč je repo strukturované jak je)
@@ -128,6 +145,7 @@ Tyto věci jsou nastaveny a fungují. Kontroluj jen při změně HW / nového po
 - První publish 0.1.0 narazil na npm 2FA pro publish → vyřešeno granular access tokenem s „Bypass 2FA" (uložený v `~/.npmrc`, nikdy ne v gitu).
 - Po prvním publish se balíček propagoval do `registry.npmjs.org` okamžitě, ale webová stránka na npmjs.com ~10 min prodlevu — neznepokojuj se, pokud hned po publish stránka hlásí 403 nebo 404.
 - `main` větev byla původně prázdná (jen initial commit z GitHubu), veškerý vývoj probíhal na `dev`. Po prvním release byla `main` fast-forward mergnuta na `dev`, default view na GitHubu teď ukazuje celý kód. Do budoucna pracovat rovnou na `main` nebo merge `dev` → `main` před release.
+- 2026-06-12 publikace 0.1.4 selhala na vypršeném tokenu (401) a do října nikdo nepublikoval. 0.1.4 proto existuje jen jako git tag. 2026-10-07 přechod na Trusted Publishing se staged publishing a vydání 0.1.5.
 
 ## Architektura
 

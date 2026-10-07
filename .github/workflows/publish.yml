@@ -1,6 +1,7 @@
 name: Publish
 
-# Publishes to npm via Trusted Publishing (OIDC) — no npm token is stored anywhere.
+# Stages the package on npm via Trusted Publishing (OIDC) — no npm token is stored anywhere.
+# The staged version goes live only after the maintainer approves it on npmjs.com with 2FA.
 # Triggered only by publishing a GitHub Release, so pushing a tag alone releases nothing.
 on:
   release:
@@ -23,8 +24,8 @@ jobs:
           node-version: "24"
           registry-url: "https://registry.npmjs.org"
 
-      - name: Ensure npm >= 11.5.1 (required for Trusted Publishing)
-        run: npm install -g npm@^11.5.1 && npm --version
+      - name: Ensure npm >= 11.15.0 (required for staged publishing)
+        run: npm install -g npm@^11.15.0 && npm --version
 
       - name: Verify release tag matches package.json version
         env:
@@ -43,5 +44,6 @@ jobs:
       - name: Smoke test
         run: node tests/smoke.mjs
 
-      - name: Publish
-        run: npm publish --access public
+      # The trusted publisher on npm allows only staged publishing, a plain `npm publish` would be rejected.
+      - name: Stage for publishing (awaits maintainer approval on npmjs.com)
+        run: npm stage publish --access public

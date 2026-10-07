@@ -19,10 +19,10 @@ klienta.
 
 ## Stav
 
-**Verze 0.1.4 — veřejně publikovaná.** Balíček běží na npm, kód a releasy jsou na GitHubu, CI běží na každý push.
+**Na npm je 0.1.3, kód na `main` je 0.1.4, která se na npm nikdy nedostala.** Publikace 0.1.4 (2026-06-12) selhala na vypršeném npm tokenu (401). Tag `v0.1.4` na GitHubu existuje, GitHub Release k němu ne. Opravy z 0.1.4 vyjdou v 0.1.5 přes Trusted Publishing (viz Roadmap).
 
-- **npm:** [`@pavelungr/seznam-webmaster-mcp@0.1.4`](https://www.npmjs.com/package/@pavelungr/seznam-webmaster-mcp), tag `latest`
-- **GitHub:** [`PavelUngr/seznam-webmaster-mcp`](https://github.com/PavelUngr/seznam-webmaster-mcp), default branch `main`, tagy `v0.1.0` až `v0.1.4` s GitHub Releases
+- **npm:** [`@pavelungr/seznam-webmaster-mcp@0.1.3`](https://www.npmjs.com/package/@pavelungr/seznam-webmaster-mcp), tag `latest`
+- **GitHub:** [`PavelUngr/seznam-webmaster-mcp`](https://github.com/PavelUngr/seznam-webmaster-mcp), default branch `main`, tagy `v0.1.0` až `v0.1.4`, GitHub Releases `v0.1.0` až `v0.1.3`
 - **CI:** GitHub Actions workflow `.github/workflows/ci.yml` — build + smoke test + `npm audit` na Node 18/20/22 při každém push do `main`/`dev` a každém PR
 - **Instalace:** `npx @pavelungr/seznam-webmaster-mcp` (standard MCP spouštění přes stdio)
 - **Kompatibilní MCP klienti:** Claude Desktop, Claude Code, OpenAI Codex CLI, Gemini CLI, Cursor
@@ -49,10 +49,17 @@ Hotovo v kódu:
 
 ## Roadmap / Naplánované změny
 
-### Nejbližší vydání (čeká na rozhodnutí uživatele)
+### v0.1.5 — dohodnuto 2026-10-07, čeká na pokyn ke spuštění
 
+Vydání obsahuje všechny opravy z 0.1.4 (ta na npm nikdy nebyla) a navíc:
+
+- **Publikace přes npm Trusted Publishing (OIDC z GitHub Actions)** místo tokenu v `~/.npmrc`. Důvod: npm token vypršel podruhé za necelé dva měsíce a kvůli tomu visí bezpečnostní opravy čtyři měsíce mimo npm. S Trusted Publishing žádný dlouhodobý token neexistuje, publikuje se jen z workflow v tomto repozitáři a npm k balíčku automaticky přidá provenance. Požadavky podle [dokumentace npm](https://docs.npmjs.com/trusted-publishers): npm CLI ≥ 11.5.1, Node ≥ 22.14.0, runner hostovaný GitHubem, oprávnění `id-token: write`, `repository.url` v `package.json` přesně shodné s repozitářem včetně velikosti písmen.
+  - nový workflow `.github/workflows/publish.yml`, spouští se publikováním GitHub Release, projde build a smoke test a publikuje
+  - `repository.url` (a `homepage`, `bugs`) v `package.json` opravit z `pavelungr` na `PavelUngr`. Kvůli shodě velikosti písmen by jinak publikace selhala.
+  - release workflow níže upravit: `npm publish` lokálně odpadá, publikaci spouští `gh release create`
+  - na npmjs.com nastaví uživatel Trusted Publisher: `PavelUngr` / `seznam-webmaster-mcp` / `publish.yml`, bez environmentu. Po první úspěšné publikaci přepnout Publishing access na „Require two-factor authentication and disallow tokens" a starý token zrušit.
+  - **Proč 0.1.5, ne 0.1.4:** tag `v0.1.4` ukazuje na commit bez publikačního workflow a se špatnou velikostí písmen v `repository.url`. Pushnutý tag nepřesouváme, 0.1.4 zůstane jen jako git tag (zaznamenat do CHANGELOG.md).
 - **Opravit výklad `downloaded` v kódu.** Popis nástroje `get_index_history` v `src/tools/history.ts` tvrdí „downloaded (= content)" a komentář u `WebHistoryCounts.content` v `src/api.ts` „same as downloaded". Obojí je špatně (viz sekce API níže). Popis nástroje čte AI asistent, takže chybný výklad se propisuje do jeho odpovědí.
-- **Ověřit chování účtového API klíče** u endpointů bez `url` (viz „Rozsah klíče — otevřená otázka" v sekci API). Na výsledku závisí, jestli půjde zjednodušit konfiguraci na jeden klíč.
 
 ### v0.2.0 nebo později
 
@@ -202,7 +209,13 @@ Obě jsou Swagger 2.0, verze API 0.1, se stejnými endpointy a modely. Snímek n
 
 **Autentizace:** query parametr `?key={apiKey}` (povinný u každého volání kromě `/database-info`). Jediný sdílený parametr ve specifikaci; **žádný endpoint nemá parametr pro výběr webu a žádný endpoint nevypisuje weby účtu**.
 
-**Rozsah klíče — otevřená otázka (2026-10-07):** podle uživatele má Seznam Webmaster jen **jeden API klíč na celý účet**, ne klíč na web. Specifikace ale nedává způsob, jak u `/web`, `/web/documents` a `/web/documents-history` určit, o který web jde. U `/web/document` a `/web/document/reindex` web plyne z parametru `url`. Chování účtového klíče u endpointů bez `url` je potřeba ověřit reálným voláním, než se na tom postaví funkcionalita. Dokud to není ověřené, platí původní model `SEZNAM_WM_SITES` (doména + klíč).
+**Rozsah klíče: jeden klíč = jeden web (ověřeno 2026-10-07).** Každý web v Seznam Webmasteru má vlastní API klíč a klíč sám určuje, o který web jde. Proto endpointy nemají parametr pro výběr webu a proto konfigurace `SEZNAM_WM_SITES` páruje doménu s klíčem. Klíč pro celý účet neexistuje a nástroj, který by jedním klíčem viděl všechny weby účtu, nad tímto API postavit nejde. Domněnka, že je klíč jeden na účet, se při testu nepotvrdila. Zápis tu zůstává, aby se otázka znovu neotevírala.
+
+Test reálným klíčem jednoho webu 2026-10-07 (jen čtecí volání):
+- `/web`, `/web/documents`, `/web/documents-history` vrátily data jen webu, ke kterému klíč patří (všech 1 579 ukázkových URL z jeho domény).
+- `/web/document` pro URL jiného webu téhož uživatele vrátil **403**.
+- `/web` vrací navíc pole `webserver` s identifikátorem webu ve tvaru obrácené domény a portu (např. `cz.tsmkurzy.!443`). Z něj jde spolehlivě zjistit, ke kterému webu klíč patří.
+- Živá data potvrzují význam kategorií historie: `downloaded` (2 654) = `doc_count` (2 654) ≠ `content` (1 936).
 
 ### Endpointy
 

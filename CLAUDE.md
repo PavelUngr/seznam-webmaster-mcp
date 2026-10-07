@@ -19,11 +19,12 @@ klienta.
 
 ## Stav
 
-**Na npm je zatím 0.1.3. Verze 0.1.5 je od 2026-10-07 připravená na npm (staged, id `642efc2b-ad24-4637-ae8b-5741c6b18202`) a čeká na schválení uživatelem** (npmjs.com → Staged Packages → Approve + 2FA). Tag `v0.1.5` a GitHub Release existují, publikační workflow prošel, provenance je v Sigstore. Verze 0.1.4 zůstala jen jako git tag, protože její publikace 2026-06-12 selhala na vypršeném tokenu.
+**Verze 0.1.5 — veřejně publikovaná (2026-10-07).** První vydání přes Trusted Publishing se schvalováním: workflow verzi připravil, uživatel ji schválil na npmjs.com. Ověřeno, že `npx @pavelungr/seznam-webmaster-mcp@0.1.5` nastartuje a hlásí verzi 0.1.5. Verze 0.1.4 existuje jen jako git tag (publikace 2026-06-12 selhala na vypršeném tokenu).
 
-- **npm:** [`@pavelungr/seznam-webmaster-mcp@0.1.3`](https://www.npmjs.com/package/@pavelungr/seznam-webmaster-mcp), tag `latest`
-- **GitHub:** [`PavelUngr/seznam-webmaster-mcp`](https://github.com/PavelUngr/seznam-webmaster-mcp), default branch `main`, tagy `v0.1.0` až `v0.1.4`, GitHub Releases `v0.1.0` až `v0.1.3`
+- **npm:** [`@pavelungr/seznam-webmaster-mcp@0.1.5`](https://www.npmjs.com/package/@pavelungr/seznam-webmaster-mcp), tag `latest`, s provenance
+- **GitHub:** [`PavelUngr/seznam-webmaster-mcp`](https://github.com/PavelUngr/seznam-webmaster-mcp), default branch `main`, tagy `v0.1.0` až `v0.1.5`, GitHub Releases pro všechny kromě `v0.1.4`
 - **CI:** GitHub Actions workflow `.github/workflows/ci.yml` — build + smoke test + `npm audit` na Node 18/20/22 při každém push do `main`/`dev` a každém PR
+- **Publikace:** `.github/workflows/publish.yml` — při publikování GitHub Release připraví verzi na npm (`npm stage publish`, OIDC), živá je po schválení uživatelem. Postup viz Release workflow.
 - **Instalace:** `npx @pavelungr/seznam-webmaster-mcp` (standard MCP spouštění přes stdio)
 - **Kompatibilní MCP klienti:** Claude Desktop, Claude Code, OpenAI Codex CLI, Gemini CLI, Cursor
 
@@ -46,20 +47,13 @@ Hotovo v kódu:
 - docs/architecture.md, docs/conventions.md, docs/gotchas.md
 - tests/smoke.mjs (30 assertů, runable přes `npm run smoke`)
 - .github/workflows/ci.yml (build + smoke + audit na Node 18/20/22)
+- .github/workflows/publish.yml (Trusted Publishing, staged publishing)
 
 ## Roadmap / Naplánované změny
 
-### v0.1.5 — ve vydávání od 2026-10-07
+### Zbývá po vydání 0.1.5 (krok uživatele)
 
-Vydání obsahuje všechny opravy z 0.1.4 (ta na npm nikdy nebyla) a navíc:
-
-- **Publikace přes npm Trusted Publishing (OIDC z GitHub Actions) se staged publishing** místo tokenu v `~/.npmrc`. Důvody a nastavení jsou v sekcích Rozhodnutí a Předpoklady pro release.
-  - workflow `.github/workflows/publish.yml` (pushnutý dřív, 2026-10-07, protože formulář npm vyžaduje existující soubor)
-  - `repository.url` (a `homepage`, `bugs`) v `package.json` opravit z `pavelungr` na `PavelUngr`. Trusted Publishing vyžaduje přesnou shodu včetně velikosti písmen.
-  - **Termín:** npm chce konfiguraci Trusted Publisheru ověřit první publikací **do 2026-10-09 19:46 UTC**, jinak je potřeba ji založit znovu.
-  - Po prvním úspěšném vydání přepnout na npm Publishing access na „Require two-factor authentication and disallow tokens" a zrušit starý (už vypršelý) token.
-  - **Proč 0.1.5, ne 0.1.4:** tag `v0.1.4` ukazuje na commit bez publikačního workflow a se špatnou velikostí písmen v `repository.url`. Pushnutý tag nepřesouváme, 0.1.4 zůstane jen jako git tag (zaznamenáno v CHANGELOG.md).
-- **Opravit výklad `downloaded` v kódu.** Popis nástroje `get_index_history` v `src/tools/history.ts` tvrdí „downloaded (= content)" a komentář u `WebHistoryCounts.content` v `src/api.ts` „same as downloaded". Obojí je špatně (viz sekce API níže). Popis nástroje čte AI asistent, takže chybný výklad se propisuje do jeho odpovědí.
+- Na npm v nastavení balíčku přepnout Publishing access na „Require two-factor authentication and disallow tokens" a smazat starý, už vypršelý token. Publikovat pak půjde jen přes `publish.yml`. npm sám v logu publikace upozorňuje, že tokeny obcházející 2FA omezuje.
 
 ### v0.2.0 nebo později
 

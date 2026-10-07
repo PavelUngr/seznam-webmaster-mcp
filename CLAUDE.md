@@ -38,7 +38,7 @@ Hotovo v kódu:
 - **Redakce API klíče** přes `redactApiKey` ze všech kanálů, kudy by mohl odejít (`readErrorDetail`, fetch error message)
 - Sanitizace tool name v error hlášce — chrání před ANSI escape sequences a podobnými payloady
 - Lokalizovaná chybová hláška pro interní výjimky (stack jen do stderr, klient dostane generic)
-- TS modely rozšířené o pole přítomná v reálném API (ale ne ve Swagger spec): `doc_count`, `content` alias v history, `webserver`, `ResponseHeader.content`
+- TS modely rozšířené o pole přítomná v reálném API (ale ne ve Swagger spec): `doc_count`, `content` v history, `webserver`, `ResponseHeader.content`
 - Verze serveru se čte z `package.json` za běhu (žádný hardcoded string)
 - Build čistí `dist/` před `tsc` (žádný shipping stale souborů)
 - README.md (sloučený CS+EN s anchor navigací), LICENSE (MIT), .gitignore, .npmignore
@@ -48,6 +48,11 @@ Hotovo v kódu:
 - .github/workflows/ci.yml (build + smoke + audit na Node 18/20/22)
 
 ## Roadmap / Naplánované změny
+
+### Nejbližší vydání (čeká na rozhodnutí uživatele)
+
+- **Opravit výklad `downloaded` v kódu.** Popis nástroje `get_index_history` v `src/tools/history.ts` tvrdí „downloaded (= content)" a komentář u `WebHistoryCounts.content` v `src/api.ts` „same as downloaded". Obojí je špatně (viz sekce API níže). Popis nástroje čte AI asistent, takže chybný výklad se propisuje do jeho odpovědí.
+- **Ověřit chování účtového API klíče** u endpointů bez `url` (viz „Rozsah klíče — otevřená otázka" v sekci API). Na výsledku závisí, jestli půjde zjednodušit konfiguraci na jeden klíč.
 
 ### v0.2.0 nebo později
 
@@ -187,13 +192,17 @@ Env proměnné se předávají přes `env` blok v klientské konfiguraci:
 
 **Nástroj (přihlášení):** https://reporter.seznam.cz/wm/
 **Nápověda (veřejná):** https://o-seznam.cz/napoveda/vyhledavani/seznam-webmaster/
-**Swagger spec:** pouze za přihlášením v nástroji (sekce API → Popis a dokumentace),
-načítá se z `https://reporter.seznam.cz/wm/web/dokumentace` jako `swagger.json`.
-Spec je Swagger 2.0, verze API 0.1.
+**Swagger spec:** veřejně dostupný bez přihlášení (ověřeno 2026-10-07), ve dvou variantách:
+- `https://reporter.seznam.cz/wm/swagger.json` — verze, kterou načítá dokumentace v přihlášeném rozhraní (API → Popis a dokumentace)
+- `https://reporter.seznam.cz/wm-api/swagger.json` — verze generovaná přímo službou, má novější popisy (viz níže). Uvádí `basePath: /wm-api/wm-api`, to je artefakt generátoru; volá se `/wm-api/...`.
+
+Obě jsou Swagger 2.0, verze API 0.1, se stejnými endpointy a modely. Snímek novější varianty je v [docs/swagger.json](docs/swagger.json) — při podezření na změnu API ho porovnej s aktuální verzí.
 
 **Základní URL:** `https://reporter.seznam.cz/wm-api`
 
-**Autentizace:** query parametr `?key={apiKey}` (povinný u každého volání kromě `/database-info`)
+**Autentizace:** query parametr `?key={apiKey}` (povinný u každého volání kromě `/database-info`). Jediný sdílený parametr ve specifikaci; **žádný endpoint nemá parametr pro výběr webu a žádný endpoint nevypisuje weby účtu**.
+
+**Rozsah klíče — otevřená otázka (2026-10-07):** podle uživatele má Seznam Webmaster jen **jeden API klíč na celý účet**, ne klíč na web. Specifikace ale nedává způsob, jak u `/web`, `/web/documents` a `/web/documents-history` určit, o který web jde. U `/web/document` a `/web/document/reindex` web plyne z parametru `url`. Chování účtového klíče u endpointů bez `url` je potřeba ověřit reálným voláním, než se na tom postaví funkcionalita. Dokud to není ověřené, platí původní model `SEZNAM_WM_SITES` (doména + klíč).
 
 ### Endpointy
 
@@ -205,15 +214,21 @@ Odpověď 200: model `Web` (`{documents: WebDocuments, history: WebHistory[]}`)
 #### GET /web/documents
 Vrátí počty stránek webu po kategoriích + náhodný vzorek max. 1 000 URL.
 Parametry: `key` (povinný)
-Kategorie: `content` (stažené), `redirect`, `index`, `error`
-Odpověď 200: model `WebDocuments` (`{content, redirect, index, error}` — každá je `WebUrl`)
+Kategorie: `content` (stažené), `redirect`, `index`, `error`; novější popis přidává `doc_count` (počet stránek, o jejichž existenci robot ví)
+Odpověď 200: model `WebDocuments` (`{content, redirect, index, error}` — každá je `WebUrl`; `doc_count` v modelu swaggeru chybí, živé API ho vrací)
 
 #### GET /web/documents-history
 Vrátí vývoj počtu stránek po dnech.
 Parametry: `key` (povinný), `date_from` (datum, nepovinný), `date_to` (datum, nepovinný)
-Kategorie v odpovědi: `error`, `downloaded`, `redirected`, `indexed`
-Odpověď 200: array `WebHistory[]` (`{date: string, counts: {error, downloaded, redirected, indexed}}`)
-Pozor: názvy kategorií se liší od `/web/documents` (downloaded vs content, redirected vs redirect)
+Kategorie v odpovědi (podle novějšího popisu služby, 2026-10-07):
+- `doc_count` — počet stránek, o jejichž existenci robot ví
+- `content` — počet stránek, které robot stahuje a zná jejich obsah
+- `downloaded` — počet stránek objevených robotem; **zastaralé, nahrazeno `doc_count`**
+- `redirected`, `indexed`, `error`
+
+Odpověď 200: array `WebHistory[]` (model ve swaggeru uvádí jen `error, downloaded, redirected, indexed`)
+
+Pozor: názvy kategorií se liší od `/web/documents` (`redirected` vs `redirect`, `indexed` vs `index`). **`downloaded` NENÍ jiný název pro `content`** — odpovídá `doc_count`. Do v0.1.4 jsme to v kódu i docs tvrdili chybně (oprava viz Roadmap).
 
 #### GET /web/document
 Vrátí detail konkrétní URL.
@@ -288,6 +303,8 @@ interface ProblemResult { title: string; description: string; type: string; stat
 ```
 
 ### Limity API
+
+Podle swaggeru „ověřováno pro každého uživatele a pro každý web":
 
 - nejvýše 5 dotazů za vteřinu
 - nejvýše 100 dotazů za minutu

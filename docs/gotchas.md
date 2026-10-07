@@ -5,7 +5,7 @@ Seznam věcí, které jsou nečekané, špatně dokumentované nebo snadno přeh
 ## Seznam Webmaster API
 
 - **HTTP 204 není chyba.** Seznam vrací 204, když se dotaz provedl, ale data zatím nejsou k dispozici (web přidaný do nástroje může mít data dostupná až za 24 hodin). Nástroj musí toto hlásit jako neutrální zprávu „data zatím nejsou dostupná”, ne jako selhání.
-- **Kategorie v `/web/documents-history` se jmenují jinak než v `/web/documents`.** V `/web/documents` jsou `content, redirect, index, error`; v `/web/documents-history` jsou `downloaded, redirected, indexed, error`. Při zobrazení uživateli mapujeme na jednotný český popisek, ale v raw JSON necháváme tak, jak přišly od Seznamu.
+- **Kategorie v `/web/documents-history` se jmenují jinak než v `/web/documents` a `downloaded` NENÍ alias pro `content`.** `downloaded` znamená stránky objevené robotem, je zastaralé a nahrazuje ho `doc_count`. Do v0.1.4 jsme to chybně vykládali jako `content`. Přesný význam kategorií je v sekci Seznam Webmaster API v [CLAUDE.md](../CLAUDE.md); raw JSON necháváme tak, jak přišel od Seznamu.
 - **`POST /web/document/reindex` vyžaduje klíč s právem zápisu.** Read-only klíč vrátí HTTP 403. Zprávu o 403 je potřeba odlišit od 401 (chybný klíč), jinak uživatel tápe.
 - **`/database-info` nepotřebuje `key`.** Jako jediný endpoint. Tj. `list_sites` + `get_database_info` lze volat i bez nakonfigurované domény.
 - **Rate limity: 5/s a 100/min.** Při 429 je třeba počkat a zopakovat. Spec je nedefinuje explicitně, takže používáme jednoduchý exponenciální backoff (500 ms, 1 s, 2 s, max 3 pokusy).
@@ -66,7 +66,7 @@ Toto je neveřejné pravidlo, ale veřejně slíbené v README a v `docs/convent
 Swagger spec, z něhož jsou odvozeny TS modely `Web`, `WebDocuments`, `WebHistoryCounts`, `DocumentInfo`, je zjevně starší/neúplný. Třetí audit (23. 4. 2026) ověřil, že živé API vrací navíc:
 
 - `WebDocuments.doc_count` (celkový počet stránek napříč kategoriemi)
-- `WebHistoryCounts.content` (alias pro `downloaded`) a `WebHistoryCounts.doc_count`
+- `WebHistoryCounts.content` (stránky, které robot stahuje a zná obsah — **ne** alias pro `downloaded`, jak jsme původně mysleli) a `WebHistoryCounts.doc_count` (stránky, o kterých robot ví; nahrazuje zastaralé `downloaded`)
 - `Web.webserver` (identifikace webového serveru)
 - `DocumentInfo.responseHeaders[].content` (alias pro `value` — někdy místo něj)
 

@@ -1,0 +1,565 @@
+{
+  "basePath": "/wm-api/wm-api",
+  "consumes": [
+    "application/json"
+  ],
+  "definitions": {
+    "Document": {
+      "properties": {
+        "downloadTimestamp": {
+          "type": "integer"
+        },
+        "indexTimestamp": {
+          "type": "integer"
+        },
+        "isError": {
+          "type": "boolean"
+        },
+        "isIndexed": {
+          "type": "boolean"
+        },
+        "isRedirect": {
+          "type": "boolean"
+        },
+        "meta": {
+          "properties": {
+            "author": {
+              "type": "string"
+            },
+            "desc": {
+              "type": "string"
+            },
+            "keywords": {
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "openGraphData": {
+          "items": {
+            "properties": {
+              "content": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "responseHeaders": {
+          "items": {
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "title": {
+          "type": "string"
+        },
+        "url": {
+          "format": "url",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "ProblemResult": {
+      "properties": {
+        "description": {
+          "description": "titulek popisu",
+          "type": "string"
+        },
+        "status": {
+          "description": "HTTP kód",
+          "type": "integer"
+        },
+        "title": {
+          "description": "titulek problému",
+          "type": "string"
+        },
+        "type": {
+          "default": "about:blank",
+          "description": "URI s typem výskytu problému",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "Web": {
+      "properties": {
+        "documents": {
+          "$ref": "#/definitions/WebDocuments"
+        },
+        "history": {
+          "items": {
+            "$ref": "#/definitions/WebHistory"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "WebDocuments": {
+      "properties": {
+        "content": {
+          "$ref": "#/definitions/WebUrl"
+        },
+        "error": {
+          "$ref": "#/definitions/WebUrl"
+        },
+        "index": {
+          "$ref": "#/definitions/WebUrl"
+        },
+        "redirect": {
+          "$ref": "#/definitions/WebUrl"
+        }
+      },
+      "type": "object"
+    },
+    "WebHistory": {
+      "properties": {
+        "counts": {
+          "properties": {
+            "downloaded": {
+              "type": "integer"
+            },
+            "error": {
+              "type": "integer"
+            },
+            "indexed": {
+              "type": "integer"
+            },
+            "redirected": {
+              "type": "integer"
+            }
+          },
+          "type": "object"
+        },
+        "date": {
+          "format": "date",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "WebUrl": {
+      "properties": {
+        "count": {
+          "type": "integer"
+        },
+        "urls": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "host": "reporter.seznam.cz",
+  "info": {
+    "description": "Pomocí veřejného API  Webmaster se můžete dostat k podrobnějším informacím o vašem webu. Předpokládá schopnost zavolat API dotaz a následně zpracovat odpověď ve formátu JSON.\n\nZde na této stránce naleznete popis všech volání a co vrací. Můžete si také přímo zde volání API vyzkoušet po kliknutí na tlačítko \"Vyzkoušet operaci\".\n\nPro volání API je třeba mít vygenerovaný unikátní přístupový klíč. Ten si můžete případně změnit zde (a proklik na \"Klíč k API\").\n\nVolání API je omezeno následujícími limity - ověřováno pro každého uživatele a pro každý web:\n  * nejvýše 5 dotazů za vteřinu\n  * a nejvýše 100 dotazů za minutu\n  * požadavek na vynucení indexace stránek je možno dělat nejvýše 500 krát za den\n",
+    "title": "Webmaster API",
+    "version": "0.1"
+  },
+  "parameters": {
+    "key": {
+      "description": "API klíč",
+      "in": "query",
+      "name": "key",
+      "required": true,
+      "type": "string"
+    }
+  },
+  "paths": {
+    "/__healthcheck": {
+      "get": {
+        "description": "Pokud service beží vrátí 200 OK",
+        "operationId": "wmt.api_public.handlers.get_healthcheck",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "type": "string"
+            }
+          },
+          "503": {
+            "description": "service unavailable",
+            "schema": {
+              "$ref": "#/definitions/ProblemResult"
+            }
+          }
+        },
+        "summary": "Healthcheck"
+      }
+    },
+    "/database-info": {
+      "get": {
+        "description": "Vrátí dostupné informace o databázi.",
+        "operationId": "wmt.api_public.handlers.get_database_info",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "properties": {
+                "release": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "503": {
+            "description": "databáze není dostupná",
+            "schema": {
+              "$ref": "#/definitions/ProblemResult"
+            }
+          }
+        },
+        "summary": "Informace o databázi"
+      }
+    },
+    "/metrics": {
+      "get": {
+        "operationId": "wmt.api_public.handlers.get_metrics",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "type": "string"
+            }
+          }
+        },
+        "summary": "Metriky"
+      }
+    },
+    "/web": {
+      "get": {
+        "description": "Vrátí úplné informace o webu, které jsou aktuálně dostupné.",
+        "operationId": "wmt.api_public.handlers.get_webserver",
+        "parameters": [
+          {
+            "$ref": "#/parameters/key"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/Web"
+            }
+          },
+          "204": {
+            "description": "dotaz proběhnul v pořádku, ale data zatím nejsou dostupná",
+            "schema": {
+              "$ref": "#/definitions/ProblemResult"
+            }
+          },
+          "400": {
+            "description": "v dotazu chybí API klíč (parametr key)",
+            "schema": {
+              "$ref": "#/definitions/ProblemResult"
+            }
+          },
+          "401": {
+            "description": "nesprávný API klíč",
+            "schema": {
+              "$ref": "#/definitions/ProblemResult"
+            }
+          },
+          "404": {
+            "description": "data webu nenalezena",
+            "schema": {
+              "$ref": "#/definitions/ProblemResult"
+            }
+          },
+          "502": {
+            "description": "služba je mimo provoz",
+            "schema": {
+              "$ref": "#/definitions/ProblemResult"
+            }
+          },
+          "503": {
+            "description": "služba je mimo provoz",
+            "schema": {
+              "$ref": "#/definitions/ProblemResult"
+            }
+          }
+        },
+        "summary": "Informace o webu"
+      }
+    },
+    "/web/document": {
+      "get": {
+        "description": "Vrátí informace o konkrétní webové stránce zadaného URL adresou.\n",
+        "operationId": "wmt.api_public.handlers.get_webserver_document",
+        "parameters": [
+          {
+            "$ref": "#/parameters/key"
+          },
+          {
+            "description": "URL webové stránky",
+            "format": "url",
+            "in": "query",
+            "name": "url",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/Document"
+            }
+          },
+          "204": {
+            "description": "dotaz proběhnul v pořádku, ale data zatím nejsou dostupná",
+            "schema": {
+              "$ref": "#/definitions/ProblemResult"
+            }
+          },
+          "400": {
+            "description": "v dotazu chybí API klíč (parametr key)",
+            "schema": {
+              "$ref": "#/definitions/ProblemResult"
+            }
+          },
+          "401": {
+            "description": "nesprávný API klíč",
+            "schema": {
+              "$ref": "#/definitions/ProblemResult"
+            }
+          },
+          "403": {
+            "description": "přístup odepřen",
+            "schema": {
+              "$ref": "#/definitions/ProblemResult"
+            }
+          },
+          "404": {
+            "description": "webová stránka nenalezena",
+            "schema": {
+              "$ref": "#/definitions/ProblemResult"
+            }
+          },
+          "502": {
+            "description": "služba je mimo provoz",
+            "schema": {
+              "$ref": "#/definitions/ProblemResult"
+            }
+          },
+          "503": {
+            "description": "služba je mimo provoz",
+            "schema": {
+              "$ref": "#/definitions/ProblemResult"
+            }
+          }
+        },
+        "summary": "Informace o konkrétní webové stránce"
+      }
+    },
+    "/web/document/reindex": {
+      "post": {
+        "description": "Zažádá o reindexaci webové stránky se zadanou URL adresou.\n\n**Pozor:** k této operaci jsou nezbytná práva k zápisu (správce, zápis).\n",
+        "operationId": "wmt.api_public.handlers.post_webserver_document_reindex",
+        "parameters": [
+          {
+            "$ref": "#/parameters/key"
+          },
+          {
+            "description": "URL webové stránky",
+            "format": "url",
+            "in": "query",
+            "name": "url",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "v dotazu chybí API klíč (parametr key)",
+            "schema": {
+              "$ref": "#/definitions/ProblemResult"
+            }
+          },
+          "401": {
+            "description": "nesprávný API klíč",
+            "schema": {
+              "$ref": "#/definitions/ProblemResult"
+            }
+          },
+          "403": {
+            "description": "přístup odepřen",
+            "schema": {
+              "$ref": "#/definitions/ProblemResult"
+            }
+          },
+          "502": {
+            "description": "služba je mimo provoz",
+            "schema": {
+              "$ref": "#/definitions/ProblemResult"
+            }
+          },
+          "503": {
+            "description": "služba je mimo provoz",
+            "schema": {
+              "$ref": "#/definitions/ProblemResult"
+            }
+          }
+        },
+        "summary": "Reindexace webové stránky"
+      }
+    },
+    "/web/documents": {
+      "get": {
+        "description": "Vrátí současné počty stránek webu za jednotlivé kategorie spolu s jejich náhodným vzorkem, o maximálním počtu 1 000 URL.\n\nKategorie webových stránek:\n\n  - **doc_count**: počet webových stránek, o jejichž existenci robot ví\n  - **content**: počet stažených webových stránek\n  - **redirect**: počet přesměrovaných webových stránek\n  - **index**: počet webových stránek v indexu\n  - **error**: počet chybových stránek\n",
+        "operationId": "wmt.api_public.handlers.get_webserver_documents",
+        "parameters": [
+          {
+            "$ref": "#/parameters/key"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/WebDocuments"
+            }
+          },
+          "204": {
+            "description": "dotaz proběhnul v pořádku, ale data zatím nejsou dostupná",
+            "schema": {
+              "$ref": "#/definitions/ProblemResult"
+            }
+          },
+          "400": {
+            "description": "v dotazu chybí API klíč (parametr key)",
+            "schema": {
+              "$ref": "#/definitions/ProblemResult"
+            }
+          },
+          "401": {
+            "description": "nesprávný API klíč",
+            "schema": {
+              "$ref": "#/definitions/ProblemResult"
+            }
+          },
+          "404": {
+            "description": "data webu nenalezena",
+            "schema": {
+              "$ref": "#/definitions/ProblemResult"
+            }
+          },
+          "502": {
+            "description": "služba je mimo provoz",
+            "schema": {
+              "$ref": "#/definitions/ProblemResult"
+            }
+          },
+          "503": {
+            "description": "služba je mimo provoz",
+            "schema": {
+              "$ref": "#/definitions/ProblemResult"
+            }
+          }
+        },
+        "summary": "Počty a vzorky webových stránek"
+      }
+    },
+    "/web/documents-history": {
+      "get": {
+        "description": "Vrátí posloupnost počtů webových stránek v čase za jednotlivé dny. Počty webových stránek jsou uváděny v jednotlivých kategoriích:\n\n  - **error**: počet chybových stránek\n  - **doc_count**: počet webových stránek, o jejichž existenci robot ví\n  - **content**: počet webových stránek, které robot stahuje a zná jejich obsah\n  - **downloaded**: počet webových stránek objevených robotem. Zastaralé, nahrazeno katergorií `doc_count`\n  - **redirected**: počet přesměrovaných webových stránek\n  - **indexed**: počet webových stránek v indexu\n",
+        "operationId": "wmt.api_public.handlers.get_webserver_documents_history",
+        "parameters": [
+          {
+            "$ref": "#/parameters/key"
+          },
+          {
+            "description": "omezení na datum od",
+            "format": "date",
+            "in": "query",
+            "name": "date_from",
+            "type": "string"
+          },
+          {
+            "description": "omezení na datum do",
+            "format": "date",
+            "in": "query",
+            "name": "date_to",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "items": {
+                "$ref": "#/definitions/WebHistory"
+              },
+              "type": "array"
+            }
+          },
+          "204": {
+            "description": "dotaz proběhnul v pořádku, ale data zatím nejsou dostupná",
+            "schema": {
+              "$ref": "#/definitions/ProblemResult"
+            }
+          },
+          "400": {
+            "description": "v dotazu chybí API klíč (parametr key)",
+            "schema": {
+              "$ref": "#/definitions/ProblemResult"
+            }
+          },
+          "401": {
+            "description": "nesprávný API klíč",
+            "schema": {
+              "$ref": "#/definitions/ProblemResult"
+            }
+          },
+          "404": {
+            "description": "data webu nenalezena",
+            "schema": {
+              "$ref": "#/definitions/ProblemResult"
+            }
+          },
+          "502": {
+            "description": "služba je mimo provoz",
+            "schema": {
+              "$ref": "#/definitions/ProblemResult"
+            }
+          },
+          "503": {
+            "description": "služba je mimo provoz",
+            "schema": {
+              "$ref": "#/definitions/ProblemResult"
+            }
+          }
+        },
+        "summary": "Historie počtu webových stránek"
+      }
+    }
+  },
+  "produces": [
+    "application/json"
+  ],
+  "schemes": [
+    "https"
+  ],
+  "swagger": "2.0"
+}

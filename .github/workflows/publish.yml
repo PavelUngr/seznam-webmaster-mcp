@@ -1,0 +1,47 @@
+name: Publish
+
+# Publishes to npm via Trusted Publishing (OIDC) — no npm token is stored anywhere.
+# Triggered only by publishing a GitHub Release, so pushing a tag alone releases nothing.
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  id-token: write # required for npm Trusted Publishing (OIDC)
+
+jobs:
+  publish:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # No dependency cache for release builds — avoids cache poisoning (npm docs recommendation).
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Ensure npm >= 11.5.1 (required for Trusted Publishing)
+        run: npm install -g npm@^11.5.1 && npm --version
+
+      - name: Verify release tag matches package.json version
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          PKG="v$(node -p "require('./package.json').version")"
+          if [ "$PKG" != "$TAG" ]; then
+            echo "Release tag $TAG does not match package.json version $PKG"
+            exit 1
+          fi
+
+      - run: npm ci
+
+      - run: npm run build
+
+      - name: Smoke test
+        run: node tests/smoke.mjs
+
+      - name: Publish
+        run: npm publish --access public

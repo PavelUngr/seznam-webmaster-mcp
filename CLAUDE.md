@@ -51,10 +51,6 @@ Hotovo v kódu:
 
 ## Roadmap / Naplánované změny
 
-### Zbývá po vydání 0.1.5 (krok uživatele)
-
-- Na npm v nastavení balíčku přepnout Publishing access na „Require two-factor authentication and disallow tokens" a smazat starý, už vypršelý token. Publikovat pak půjde jen přes `publish.yml`. npm sám v logu publikace upozorňuje, že tokeny obcházející 2FA omezuje.
-
 ### v0.2.0 nebo později
 
 - **Aktualizovat GitHub Actions na verze pro Node 24.** Při vydání 0.1.5 GitHub upozornil, že `actions/checkout@v4` a `actions/setup-node@v4` cílí na zastaralý Node 20 a běží vynuceně na Node 24. Týká se `ci.yml` i `publish.yml`. Zatím nic nerozbíjí.
@@ -132,7 +128,8 @@ Pravidlo #1: **všechny tři zdroje** (npm, GitHub, CLAUDE.md) musí mít stejn�
 
 Tyto věci jsou nastaveny a fungují. Kontroluj jen při změně HW / nového počítače.
 
-- **npm Trusted Publisher** (od 2026-10-07), nastavený na npmjs.com → balíček → Settings → Trusted Publisher: GitHub Actions, `PavelUngr` / `seznam-webmaster-mcp` / `publish.yml`, bez environmentu, povolené jen `npm stage publish`. Vlastník, repozitář a workflow nejdou upravit, jen smazat a založit znovu. Žádný npm token se nepoužívá. Token v `~/.npmrc` je vypršelý a k vydání ho nepotřebujeme.
+- **npm Trusted Publisher** (od 2026-10-07), nastavený na npmjs.com → balíček → Settings → Trusted Publisher: GitHub Actions, `PavelUngr` / `seznam-webmaster-mcp` / `publish.yml`, bez environmentu, povolené jen `npm stage publish`. Vlastník, repozitář a workflow nejdou upravit, jen smazat a založit znovu.
+- **Publikování tokenem je na npm zakázané** (od 2026-10-07: Publishing access „Require two-factor authentication and disallow tokens", starý token smazaný). Lokálně není npm přihlášení žádné, `~/.npmrc` neexistuje a `npm whoami` hlásí `ENEEDAUTH`. To je správný stav, k vydání přihlášení není potřeba. Příkazy, které vyžadují přihlášení (`npm access …`, `npm stage list`), proto lokálně nefungují. Stav balíčku ověřuj přes `npm view`.
 - **GitHub auth** přes `gh` CLI (`gh auth status`) — používá se pro `gh release create` a kontrolu běhů workflow.
 - **Scope `@pavelungr` na npm** je aktivní a public.
 

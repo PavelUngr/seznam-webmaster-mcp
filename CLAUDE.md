@@ -19,7 +19,7 @@ klienta.
 
 ## Stav
 
-**Na npm je 0.1.3, kód na `main` je 0.1.4, která se na npm nikdy nedostala.** Publikace 0.1.4 (2026-06-12) selhala na vypršeném npm tokenu (401). Tag `v0.1.4` na GitHubu existuje, GitHub Release k němu ne. Opravy z 0.1.4 vyjdou v 0.1.5 přes Trusted Publishing (viz Roadmap).
+**Na npm je zatím 0.1.3. Verze 0.1.5 je od 2026-10-07 připravená na npm (staged, id `642efc2b-ad24-4637-ae8b-5741c6b18202`) a čeká na schválení uživatelem** (npmjs.com → Staged Packages → Approve + 2FA). Tag `v0.1.5` a GitHub Release existují, publikační workflow prošel, provenance je v Sigstore. Verze 0.1.4 zůstala jen jako git tag, protože její publikace 2026-06-12 selhala na vypršeném tokenu.
 
 - **npm:** [`@pavelungr/seznam-webmaster-mcp@0.1.3`](https://www.npmjs.com/package/@pavelungr/seznam-webmaster-mcp), tag `latest`
 - **GitHub:** [`PavelUngr/seznam-webmaster-mcp`](https://github.com/PavelUngr/seznam-webmaster-mcp), default branch `main`, tagy `v0.1.0` až `v0.1.4`, GitHub Releases `v0.1.0` až `v0.1.3`
@@ -62,6 +62,8 @@ Vydání obsahuje všechny opravy z 0.1.4 (ta na npm nikdy nebyla) a navíc:
 - **Opravit výklad `downloaded` v kódu.** Popis nástroje `get_index_history` v `src/tools/history.ts` tvrdí „downloaded (= content)" a komentář u `WebHistoryCounts.content` v `src/api.ts` „same as downloaded". Obojí je špatně (viz sekce API níže). Popis nástroje čte AI asistent, takže chybný výklad se propisuje do jeho odpovědí.
 
 ### v0.2.0 nebo později
+
+- **Aktualizovat GitHub Actions na verze pro Node 24.** Při vydání 0.1.5 GitHub upozornil, že `actions/checkout@v4` a `actions/setup-node@v4` cílí na zastaralý Node 20 a běží vynuceně na Node 24. Týká se `ci.yml` i `publish.yml`. Zatím nic nerozbíjí.
 
 - **Unit testy** přes Vitest (nikoli Jest — Vitest je ESM-native a rychlejší, lépe sedí na náš stack). Přidat i `test` a `lint` script do `package.json`. Pokrýt minimálně: parsing `SEZNAM_WM_SITES` v `config.ts`, fallback cs→key v `i18n.ts`, mapování HTTP status → `ApiErrorKind` v `api.ts`, `optionalDate` / `requireUrl` / `normalizeDomain` v `tools/` a `config/`. Testy psát *před* jakoukoli větší refaktorizací.
 - **Preventivní rate limiting** (token bucket pro 5 req/s, 100 req/min) v `ApiClient`. Zatím řešeno jen reaktivně přes 429 retry — pro dávkové operace (např. LLM, který ze smyčky volá `reindex_url` pro stovky URL) by preventivní throttling byl lepší.

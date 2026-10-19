@@ -45,7 +45,8 @@ Hotovo v kódu:
 - README.md (sloučený CS+EN s anchor navigací), LICENSE (MIT), .gitignore, .npmignore
 - CHANGELOG.md (Keep a Changelog formát)
 - docs/architecture.md, docs/conventions.md, docs/gotchas.md
-- tests/smoke.mjs (30 assertů, runable přes `npm run smoke`)
+- tests/smoke.mjs (34 assertů včetně formátu skillu, runable přes `npm run smoke`)
+- skills/seznam-webmaster/SKILL.md (skill pro AI agenty, zdarma, jen na GitHubu)
 - .github/workflows/ci.yml (build + smoke + audit na Node 18/20/22)
 - .github/workflows/publish.yml (Trusted Publishing, staged publishing)
 
@@ -57,6 +58,16 @@ Hotovo v kódu:
 
 - **Unit testy** přes Vitest (nikoli Jest — Vitest je ESM-native a rychlejší, lépe sedí na náš stack). Přidat i `test` a `lint` script do `package.json`. Pokrýt minimálně: parsing `SEZNAM_WM_SITES` v `config.ts`, fallback cs→key v `i18n.ts`, mapování HTTP status → `ApiErrorKind` v `api.ts`, `optionalDate` / `requireUrl` / `normalizeDomain` v `tools/` a `config/`. Testy psát *před* jakoukoli větší refaktorizací.
 - **Preventivní rate limiting** (token bucket pro 5 req/s, 100 req/min) v `ApiClient`. Zatím řešeno jen reaktivně přes 429 retry — pro dávkové operace (např. LLM, který ze smyčky volá `reindex_url` pro stovky URL) by preventivní throttling byl lepší.
+
+## Skill pro AI agenty (`skills/seznam-webmaster`)
+
+Skill je návod pro AI agenta, který používá nástroje serveru: kdy který nástroj volat, jak správně číst kategorie (`doc_count` / `content` / `downloaded`), co dělat při HTTP 204, jak bezpečně žádat o reindexaci a jak postupovat při auditu indexace. Není to dokumentace pro vývojáře (ta je v `docs/`) ani pro uživatele (README).
+
+- **Jazyk:** angličtina. Čte ho agent a skill se nabízí na mezinárodním trhu. Agent má podle skillu odpovídat v jazyce uživatele.
+- **Distribuce:** jen přes GitHub, zdarma, licence MIT jako server. Do npm balíčku nepatří (`files` whitelist), protože se neinstaluje přes npm, ale kopíruje do složky skillů agenta (`~/.claude/skills/` pro Claude Code).
+- **Formální požadavky** (Claude Code i Agensi): soubor `SKILL.md` s frontmatterem, `name` jen malá písmena, číslice a pomlčky a **shodné s názvem složky** (jinak se skill nenačte), `description` 1–3 věty (co dělá + spouštěcí fráze). Skill nemá skripty ani klíče, jen text.
+- **Zdroj pravdy a duplicity:** skill opakuje fakta, jejichž zdroj pravdy je jinde. Při jejich změně uprav **všechna místa**: význam kategorií a limity (sekce Seznam Webmaster API v tomto souboru → `SKILL.md` → popisy nástrojů v `src/tools/*.ts`), seznam nástrojů a jejich parametry (`src/tools/*.ts` → `SKILL.md`). Smoke test kontroluje formát skillu a že `SKILL.md` zmiňuje každý registrovaný nástroj.
+- **Marketplace Agensi** (agensi.io, oslovili uživatele e-mailem 2026-10-14): uživatel o zařazení stojí, ale jen zdarma. Podání dělá uživatel sám přes jejich dashboard (účet zakládá on). Podle jejich dokumentace se podává zip s jednou nadřazenou složkou pojmenovanou jako skill a `SKILL.md` v jejím kořeni. Prochází automatickým skenem (prompt injection, exfiltrace dat, nebezpečné příkazy, napevno zapsané klíče, obfuskace, podezřelý síťový přístup, struktura zipu, platnost `SKILL.md`), AI kontrolou a lidskou kontrolou, obvykle 24–48 hodin. Formulář podání jsme neviděli (načítá se po přihlášení). Nejasné je, zda přijmou skill závislý na externím serveru a klíčích kupujícího a zda „repackaged free skills get rejected" dopadne i na tento. Obojí je v konceptu odpovědi Agensi (připraven 2026-10-19, odesílá uživatel sám); až odpoví, zapsat výsledek sem.
 
 ## Rozhodnutí (co jsme záměrně neudělali a proč)
 
@@ -373,13 +384,22 @@ fungují i bez nakonfigurované domény.
 ```
 seznam-webmaster-mcp/
 ├── CLAUDE.md
-├── README.md           ← anglická verze (canonical)
-├── README.cs.md        ← česká verze
+├── README.md           ← česky (nahoře) i anglicky (dole) s odkazy mezi sekcemi
+├── README.cs.md        ← jen odkaz na README.md (kvůli starým odkazům)
+├── CHANGELOG.md        ← historie verzí (Keep a Changelog)
 ├── LICENSE             ← MIT
 ├── .gitignore
-├── .npmignore          ← brání src/, docs/, CLAUDE.md v npm balíčku
-├── package.json
+├── .npmignore
+├── package.json        ← `files` whitelist: do npm jde jen dist/, README, LICENSE
 ├── tsconfig.json
+├── .github/workflows/
+│   ├── ci.yml          ← build + smoke + audit
+│   └── publish.yml     ← Trusted Publishing (npm stage publish)
+├── skills/
+│   └── seznam-webmaster/
+│       └── SKILL.md    ← návod pro AI agenta (viz sekce Skill níže); mimo npm balíček
+├── tests/
+│   └── smoke.mjs       ← smoke test, `npm run smoke`
 ├── src/
 │   ├── index.ts        ← vstupní bod, registrace MCP serveru, stdio transport
 │   ├── config.ts       ← parsing SEZNAM_WM_SITES + SEZNAM_WM_LANG, validace
@@ -396,7 +416,8 @@ seznam-webmaster-mcp/
 └── docs/
     ├── architecture.md
     ├── conventions.md
-    └── gotchas.md
+    ├── gotchas.md
+    └── swagger.json    ← snímek veřejného swaggeru Seznamu (2026-10-07) pro porovnání změn API
 ```
 
 ---

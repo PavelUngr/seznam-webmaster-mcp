@@ -142,6 +142,12 @@ Po nastavení stačí napsat asistentovi něco v tomto duchu:
 
 Server vrátí strukturovanou odpověď z API, asistent ji interpretuje.
 
+## Skill pro AI agenty
+
+Ve složce [skills/seznam-webmaster](skills/seznam-webmaster/SKILL.md) je volitelný skill (`SKILL.md`), který agentovi vysvětlí, jak se serverem pracovat: který nástroj kdy zavolat, jak číst kategorie stránek (a že `downloaded` není totéž co `content`), co znamená HTTP 204, jak bezpečně žádat o reindexaci a jak postupovat při auditu indexace. Server funguje i bez něj, skill jen zlepšuje, jak ho agent používá.
+
+Pro Claude Code zkopíruj složku `seznam-webmaster` do `~/.claude/skills/` (nebo do `.claude/skills/` v projektu). Další agenti, kteří skilly podporují, mají vlastní složku, najdeš ji v jejich dokumentaci. Skill je zdarma, pod stejnou licencí MIT jako server.
+
 ## Limity a známé chování
 
 **Limity Seznam API:**
@@ -348,6 +354,12 @@ Once configured, just ask your assistant:
 - "Which domains are configured?"
 
 The server returns the API data; the assistant interprets it.
+
+## Skill for AI agents
+
+The folder [skills/seznam-webmaster](skills/seznam-webmaster/SKILL.md) contains an optional skill (`SKILL.md`) that teaches the agent how to work with this server: which tool to call when, how to read the page categories (and that `downloaded` is not the same as `content`), what HTTP 204 means, how to request reindexing safely, and how to run an indexation audit. The server works without it, the skill only improves how the agent uses it.
+
+For Claude Code, copy the `seznam-webmaster` folder into `~/.claude/skills/` (or `.claude/skills/` inside a project). Other agents that support skills have their own folder, see their documentation. The skill is free and uses the same MIT license as the server.
 
 ## Limits and known behavior
 

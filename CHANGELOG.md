@@ -2,6 +2,12 @@
 
 Všechny významné změny v `@pavelungr/seznam-webmaster-mcp` jsou zde. Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/) a projekt drží [Semver](https://semver.org/lang/cs/).
 
+## [Unreleased]
+
+### Added
+- **Skill pro AI agenty** [`skills/seznam-webmaster`](skills/seznam-webmaster/SKILL.md): návod, jak s nástroji serveru zacházet (výklad kategorií, HTTP 204, limity, bezpečná reindexace, postup auditu indexace). Zdarma, licence MIT, jen na GitHubu (nejde do npm balíčku). Instalace je popsaná v README.
+- Smoke test kontroluje formát skillu a že zmiňuje každý registrovaný nástroj.
+
 ## [0.1.5] — 2026-10-07
 
 První verze na npm od 0.1.3. Obsahuje všechny změny z 0.1.4 (viz níže), která se na npm nikdy nedostala.

@@ -10,6 +10,7 @@
  * Run with: `npm run smoke` (which builds first).
  */
 import { spawn } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import path from "node:path";
 
@@ -142,6 +143,32 @@ for (const [input, expected] of normCases) {
   );
 }
 
+// ---- Skill format ----
+// A skill whose `name` differs from its folder name does not load, and a
+// description that breaks YAML makes the whole file invalid.
+
+const skillDir = path.join(root, "skills", "seznam-webmaster");
+const skillFile = path.join(skillDir, "SKILL.md");
+const skillText = existsSync(skillFile) ? readFileSync(skillFile, "utf8") : "";
+const skillFrontmatter = /^---\r?\n([\s\S]*?)\r?\n---/.exec(skillText)?.[1] ?? "";
+const skillName = /^name:\s*(.+)$/m.exec(skillFrontmatter)?.[1]?.trim() ?? "";
+const skillDescription = /^description:\s*(.+)$/m.exec(skillFrontmatter)?.[1]?.trim() ?? "";
+
+assert("SKILL.md exists and has frontmatter", skillText.length > 0 && skillFrontmatter.length > 0);
+assert(
+  "skill name is lowercase/digits/hyphens and matches its folder name",
+  /^[a-z0-9-]+$/.test(skillName) && skillName === path.basename(skillDir),
+  `name="${skillName}", folder="${path.basename(skillDir)}"`,
+);
+assert(
+  "skill description is present, up to 1024 chars and safe as a plain YAML scalar",
+  skillDescription.length > 0 &&
+    skillDescription.length <= 1024 &&
+    !skillDescription.includes(": ") &&
+    !/\s#/.test(skillDescription),
+  `length=${skillDescription.length}`,
+);
+
 // ---- Server smoke ----
 
 // Build the SEZNAM_WM_SITES fixture from parts so the static string
@@ -167,6 +194,17 @@ try {
     "server info version matches package.json (0.1.x)",
     typeof info.version === "string" && /^0\.1\.\d+$/.test(info.version),
     `version=${info.version}`,
+  );
+
+  // The skill must mention every tool the server registers (drift guard)
+  srv.send({ jsonrpc: "2.0", id: 3, method: "tools/list" });
+  const listed = await srv.waitForLine((m) => m.id === 3);
+  const toolNames = listed.result.tools.map((t) => t.name);
+  const notInSkill = toolNames.filter((n) => !skillText.includes(n));
+  assert(
+    "SKILL.md mentions every registered tool",
+    toolNames.length > 0 && notInSkill.length === 0,
+    notInSkill.length ? `missing: ${notInSkill.join(", ")}` : `${toolNames.length} tools`,
   );
 
   // URL-like domain input should still match
